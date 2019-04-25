@@ -1,0 +1,25 @@
+{
+    "name": "firmwareserver",
+    "version": "1.0.0",
+    "description": "A webserver that provides the current firmware",
+    "main": "build/index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "auto-compile": "tsc -w",
+        "auto-run": "nodemon build/index.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/gkoe/leoiot20.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/gkoe/leoiot20/issues"
+    },
+    "homepage": "https://github.com/gkoe/leoiot20#readme",
+    "dependencies": {
+        "nodemon": "^1.18.11",
+        "typescript": "^3.4.5"
+    }
+}
