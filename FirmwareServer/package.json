@@ -5,6 +5,8 @@
     "main": "build/index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
+	"compile": "tsc",
+	"run": "node build/index.js",
         "auto-compile": "tsc -w",
         "auto-run": "nodemon build/index.js"
     },
