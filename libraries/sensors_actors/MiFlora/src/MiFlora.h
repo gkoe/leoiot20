@@ -1,0 +1,57 @@
+#pragma once
+#include <map>
+#include <functional>
+#include <cstring>
+#include <BLEClient.h>
+#include <BLEAddress.h>
+#include <IotSensor.h>
+
+
+struct StrCompare : public std::binary_function<const char*, const char*, bool> {
+public:
+    bool operator() (const char* str1, const char* str2) const
+    { return std::strcmp(str1, str2) < 0; }
+};
+
+struct miflora_t
+{
+  // BLEAddress* bleAddress;
+  char macAddress[20];
+  long lastMeasurementTime;
+  IotSensor* moistureSensor;
+  IotSensor* temperatureSensor;
+  IotSensor* rssiSensor;
+  IotSensor* brightnessSensor;
+  IotSensor* batteryLevelSensor;
+  IotSensor* conductivitySensor;
+};
+
+typedef std::map<const char *, miflora_t *, StrCompare> MiFloraMap;
+
+struct cmp_str
+{
+   bool operator()(char const *a, char const *b) const
+   {
+      return strcmp(a, b) != 0;
+   }
+};
+
+class MiFloraClass
+{
+
+public:
+  void init();
+  bool setMiFloraSensorValues(miflora_t *miflora);
+  void closeBleConnection();
+
+  void doLoopMiFloras();
+
+private:
+  MiFloraMap* _miFloras;
+  BLEClient*  _bleClient;
+  int _actMiFloraIndex = 0;
+  TaskHandle_t* _scanTask=nullptr;
+  TaskHandle_t* _readTask=nullptr;
+};
+
+extern MiFloraClass MiFlora;
