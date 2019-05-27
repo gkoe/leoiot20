@@ -3,6 +3,7 @@
 #include "esp_err.h"
 #include "nvs_flash.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <Constants.h>

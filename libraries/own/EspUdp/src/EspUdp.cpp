@@ -21,6 +21,44 @@
 
 #define SERVERPORT 41235
 
+/*
+    Eine gültige IP-Adresse muss aus vier Zahlen, getrennt durch drei Punkte bestehen
+*/
+bool isValidIp(char *text)
+{
+    char loggerMessage[LENGTH_LOGGER_MESSAGE];
+    int len = strlen(text);
+    bool hasWrongChar = false;
+    if (len < 7)
+    {
+        sprintf(loggerMessage, "ipText: %s is too short", text);
+    }
+    else
+    {
+        int dots = 0;
+        int index = 0;
+        while (!hasWrongChar && index < len)
+        {
+            if (text[index == '.'])
+            {
+                dots++;
+            }
+            else if (text[index] < '0' || text[index] > '9')
+            {
+                hasWrongChar = true;
+                sprintf(loggerMessage, "ipText: %s has wrong chars", text);
+            }
+            index++;
+        }
+    }
+    if (len < 7 || hasWrongChar)
+    {
+        Logger.error("EspUdp;isValidIp()", loggerMessage);
+        return false;
+    }
+    return true;
+}
+
 static void udp_server_task(void *pvParameters)
 {
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
@@ -61,10 +99,11 @@ static void udp_server_task(void *pvParameters)
 
         while (1)
         {
-            Logger.info("EspUdp; udp_server_task()", "Waiting for data");
+            // Logger.info("EspUdp; udp_server_task()", "Waiting for data");
             struct sockaddr_in6 source_addr; // Large enough for both IPv4 or IPv6
             socklen_t socklen = sizeof(source_addr);
             int len = recvfrom(sock, ipAddressText, sizeof(ipAddressText) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
+            // Logger.info("EspUdp; udp_server_task()", "Data received");
 
             // Error occurred during receiving
             if (len < 0)
@@ -87,28 +126,36 @@ static void udp_server_task(void *pvParameters)
                 }
 
                 ipAddressText[len] = 0; // Null-terminate whatever we received and treat like a string...
-                sprintf(loggerMessage, "Received %d bytes from %s: %s", len, addr_str, ipAddressText);
-                Logger.info("EspUdp; udp_server_task()", loggerMessage);
-
-                // int err = sendto(sock, ipAddressText, len, 0, (struct sockaddr *)&source_addr, sizeof(source_addr));
-                if (err < 0)
+                // sprintf(loggerMessage, "Logger Address %s", ipAddressText);
+                // Logger.info("EspUdp; udp_server_task()", loggerMessage);
+                if (!isValidIp(ipAddressText))
                 {
-                    sprintf(loggerMessage, "Error occurred during sending: errno %d", errno);
+                    sprintf(loggerMessage, "UdpLoggerTartget Address %s is invalid", ipAddressText);
                     Logger.error("EspUdp; udp_server_task()", loggerMessage);
-                    break;
                 }
                 else
                 {
-                    LoggerTarget *target = Logger.getLoggerTarget(ipAddressText);
-                    if (target == nullptr) // erste Anfrage des Udp-Clients
+                    sprintf(loggerMessage, "UdpLogger registered!");
+                    int err = sendto(sock, loggerMessage, strlen(loggerMessage), 0, (struct sockaddr *)&source_addr, sizeof(source_addr));
+                    if (err < 0)
                     {
-                        target = new UdpLoggerTarget(ipAddressText, LOG_LEVEL_INFO);
-                        Logger.addLoggerTarget(target);
-                        sprintf(loggerMessage, "Logger registered:%s", ipAddressText);
-                        Logger.info("EspUdp; udp_server_task()", loggerMessage);
+                        sprintf(loggerMessage, "Error occurred during sending: errno %d", errno);
+                        Logger.error("EspUdp; udp_server_task()", loggerMessage);
+                        break;
                     }
-                    sprintf(loggerMessage, "%s;%d", ipAddressText, target->getLogLevel());
-                    Logger.info("EspUdp;online", loggerMessage);
+                    else
+                    {
+                        LoggerTarget *target = Logger.getLoggerTarget(ipAddressText);
+                        if (target == nullptr) // erste Anfrage des Udp-Clients
+                        {
+                            target = new UdpLoggerTarget(ipAddressText, LOG_LEVEL_INFO);
+                            Logger.addLoggerTarget(target);
+                            sprintf(loggerMessage, "Logger registered:%s", ipAddressText);
+                            Logger.info("EspUdp; udp_server_task()", loggerMessage);
+                        }
+                        // sprintf(loggerMessage, "%s;%d", ipAddressText, target->getLogLevel());
+                        // Logger.info("EspUdp;online", loggerMessage);
+                    }
                 }
             }
         }

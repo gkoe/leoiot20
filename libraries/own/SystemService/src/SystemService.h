@@ -36,8 +36,11 @@ public:
 
   void pushFatalError(const char *errorMessage);
   void pushError(const char *errorMessage);
+  void resetRestartsCounter();
   // void addLed(LED *led);
   void checkSystem();
+
+  void heapSizeCanPushError(bool canPushError);
 
   void enableWatchdog(uint8_t seconds);
   void disableWatchdog();
@@ -52,6 +55,7 @@ private:
   int _startHeapSize;
   long _nextMessageTime=0;
   float _nextHeapSizeQuoteForNotification = 0.7;
+  bool _heapSizeCanPushError=true;
 
   };
 

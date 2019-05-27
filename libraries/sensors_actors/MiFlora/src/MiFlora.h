@@ -44,7 +44,7 @@ public:
   bool setMiFloraSensorValues(miflora_t *miflora);
   void closeBleConnection();
 
-  void doLoopMiFloras();
+  void readNextMiFlora();
 
 private:
   MiFloraMap* _miFloras;

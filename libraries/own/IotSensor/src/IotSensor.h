@@ -58,7 +58,7 @@ class IotSensor
 	char _unit[LENGTH_SHORT_TEXT];
 	float _threshold;
 	int _maxIntervall;
-	float _measurement=0.0;		// letzter übertragener Wert
+	float _publishedMeasurement=0.0;		// letzter übertragener Wert
 	float _lastMeasurement=0.0; // letzter gemessener Wert
 	long _time;
 };

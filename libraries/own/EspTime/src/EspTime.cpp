@@ -47,8 +47,9 @@ void EspTimeClass::init()
 	{
 		strcpy(ntpServerAddress, NTP_SERVER_ADDRESS);
 	}
-	sprintf(loggerMessage,"ntpserver: %s", ntpServerAddress);;
-	Logger.info("EspTime;init()",loggerMessage);
+	sprintf(loggerMessage, "ntpserver: %s", ntpServerAddress);
+	;
+	Logger.info("EspTime;init()", loggerMessage);
 	sntp_setservername(0, ntpServerAddress); //  "0.at.pool.ntp.org"	sntp_init();
 	sntp_init();
 	// wait for the service to set the time
@@ -57,9 +58,10 @@ void EspTimeClass::init()
 	time(&now);
 	localtime_r(&now, &timeinfo);
 	int round = 0;
-	while (round < 6 && timeinfo.tm_year < (2016 - 1900))
+	while (round < 3 && timeinfo.tm_year < (2016 - 1900))
 	{
 		Logger.info("EspTime, init()", "Time not set, waiting...");
+		sntp_init();
 		vTaskDelay(5000 / portTICK_PERIOD_MS);
 		time(&now);
 		localtime_r(&now, &timeinfo);

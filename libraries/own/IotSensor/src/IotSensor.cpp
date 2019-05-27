@@ -12,12 +12,12 @@ IotSensor::IotSensor(const char *thingName, const char *name, const char *unit, 
 	strcpy(_unit, unit);
 	_threshold = threshold;
 	_maxIntervall=maxIntervall;
-	_measurement = 0;
+	_publishedMeasurement = 0;
 	_lastMeasurement = 0;
 	_time = EspTime.getTime();
 	char loggerMessage[LENGTH_LOGGER_MESSAGE];
 	sprintf(loggerMessage, "Sensor initialized: %s", name);
-	Logger.debug("Sensor Constructor", loggerMessage);
+	Logger.info("Sensor;Constructor", loggerMessage);
 }
 
 /**
@@ -28,16 +28,18 @@ IotSensor::IotSensor(const char *thingName, const char *name, const char *unit, 
 void IotSensor::setMeasurement(float value)
 {
 	_lastMeasurement = value;
-	float delta = value - _measurement;
-	if(delta < 0.0) delta = delta * -1.0;
+	float delta = value - _publishedMeasurement;
+	if(delta < 0.0){
+		delta = delta * (-1.0);
+	} 
 	long time = EspTime.getTime();
-	if (delta >= _threshold || time > _time + _maxIntervall)
+	if (time > _time && (delta >= _threshold || time > _time + _maxIntervall))  // nicht in gleicher Sekunde mehrere Werte publishen
 	{
-		_measurement = value;
-		_time = time;
 		char loggerMessage[LENGTH_LOGGER_MESSAGE];
-		sprintf(loggerMessage, "Neuer Messwert fuer %s: %.1f %s, Time: %ld", _name, _measurement, _unit, _time);
-		Logger.info("Sensor set Measurement", loggerMessage);
+		sprintf(loggerMessage, "Neuer Messwert fuer %s: %.1f%s auf %.1f%s, Time: %ld, Last: %ld", _name, _publishedMeasurement, _unit, value, _unit, time, _time);
+		Logger.info("Sensor;set Measurement", loggerMessage);
+		_publishedMeasurement = value;
+		_time = time;
 		char fullTopic[LENGTH_TOPIC];
 		//!sprintf(fullTopic, "%s/%s", Thing.getName(), _name);
 		//Serial.println(_thingName);
@@ -45,10 +47,10 @@ void IotSensor::setMeasurement(float value)
 		char payload[LENGTH_TOPIC];
 		getMqttPayload(payload, value);
 		sprintf(loggerMessage, "Topic: %s, Payload: %s", fullTopic, payload);
-		Logger.debug("Sensor set Measurement", loggerMessage);
+		Logger.info("Sensor;set Measurement", loggerMessage);
 		EspMqttClient.publish(fullTopic, payload);
-		sprintf(loggerMessage, "%s: %.1f%s,Time: %ld",_name, _measurement, _unit, _time);
-		Logger.debug("Sensor set Measurement", loggerMessage);
+		sprintf(loggerMessage, "%s: %.1f%s,Time: %ld",_name, _publishedMeasurement, _unit, _time);
+		Logger.info("Sensor;set Measurement", loggerMessage);
 	}
 }
 

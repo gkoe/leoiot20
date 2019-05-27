@@ -78,7 +78,7 @@ bool LoggerClass::addLoggerTarget(LoggerTarget *loggerTarget)
 	}
 	_logger.push_back(loggerTarget);
 	sprintf(loggerMessage, "LoggerTarget %s registered", loggerTarget->getName());
-	Logger.error("Logger;addLoggerTarget()", loggerMessage);
+	Logger.info("Logger;addLoggerTarget()", loggerMessage);
 	return true;
 }
 

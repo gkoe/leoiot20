@@ -9,6 +9,7 @@
 import socket
 #import sys
 import time
+import datetime
 import threading
 
 # -----------  Config  ----------
@@ -25,6 +26,7 @@ def runServer():
     try:
         sock = socket.socket(family_addr, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     except socket.error as msg:
         print('Failed to create socket. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
         return
@@ -37,12 +39,21 @@ def runServer():
 
     while True:
         try:
-            print('Waiting for data...')
+#            print('Waiting for data...')
             data, addr = sock.recvfrom(1024)
             if not data:
                 break
             data = data.decode()
-            line = addr[0] + ':' + str(addr[1]) + ';' + data
+            fields = data.split(";")
+            date = datetime.datetime.fromtimestamp(int(fields[0])).strftime('%Y-%m-%d')
+            time = datetime.datetime.fromtimestamp(int(fields[0])).strftime('%H:%M:%S')
+
+            line = addr[0] + ':' + str(addr[1]) + ';' + date + ';' + time
+            i=1
+            while i < len(fields):
+                line += ';'
+                line += fields[i]
+                i = i+1
             print(line)
             f.write(line+"\n")
             f.flush()
@@ -73,22 +84,25 @@ def runClient():
 
     try:
         sock = socket.socket(family_addr, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
     except socket.error:
         print('Failed to create socket')
         return
 
     while True:
         msg = get_ip()
+        print('send broadcast: '+msg)
         try:
             sock.sendto(msg.encode(), (host, CLIENT_PORT))
-            reply, addr = sock.recvfrom(128)
-            if not reply:
-                break
-            print('Reply[' + addr[0] + ':' + str(addr[1]) + '] - ' + str(reply))
+            # reply, addr = sock.recvfrom(128)
+            # if not reply:
+            #     break
+            # print('Reply[' + addr[0] + ':' + str(addr[1]) + '] - ' + str(reply))
         except socket.error as msg:
             print('Error Code : ' + str(msg[0]) + ' Message: ' + msg[1])
             return
-        time.sleep( 5 )
+        time.sleep( 10 )
     return
 
 if __name__ == "__main__":

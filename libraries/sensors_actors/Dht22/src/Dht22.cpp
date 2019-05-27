@@ -43,18 +43,18 @@ DHT::~DHT( void )
 
 void measurementInLoopTask(void *pvParameter)
 {
-    char loggerMessage[LENGTH_LOGGER_MESSAGE];
+    // char loggerMessage[LENGTH_LOGGER_MESSAGE];
     Dht22 *dhtPtr = (Dht22 *)pvParameter;
-    sprintf(loggerMessage, "GPIO: %d", dhtPtr->_pin);
-    Logger.info("Dht, measurementInLoopTask()", loggerMessage);
+    // sprintf(loggerMessage, "GPIO: %d", dhtPtr->_pin);
+    // Logger.info("Dht, measurementInLoopTask()", loggerMessage);
 
     while (1)
     {
         int ret = dhtPtr->readDht();
         dhtPtr->errorHandler(ret);
 
-        sprintf(loggerMessage, "Hum: %.1f Tmp: %.1f", dhtPtr->getHumidity(), dhtPtr->getTemperature());
-        Logger.info("Dht, measurementInLoopTask()", loggerMessage);
+        // sprintf(loggerMessage, "Hum: %.1f Tmp: %.1f", dhtPtr->getHumidity(), dhtPtr->getTemperature());
+        // Logger.info("Dht, measurementInLoopTask()", loggerMessage);
 
         // -- wait at least 2 sec before reading again ------------
         // The interval of whole process must be beyond 2 seconds !!
@@ -214,7 +214,7 @@ int Dht22::readDht()
 
         // -- check to see if after >70us rx data is a 0 or a 1
 
-        uSec = getSignalLevel(75, 1);
+        uSec = getSignalLevel(80, 1);  //! 75
         if (uSec < 0)
             return DHT_TIMEOUT_ERROR;
 

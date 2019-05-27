@@ -66,6 +66,12 @@ void SystemServiceClass::init()
     enableWatchdog(30); // 30 Sekunden Watchdogzeit
 }
 
+void SystemServiceClass::resetRestartsCounter()
+{
+    _restarts = 0;
+    EspConfig.setNvsIntValue("restarts", 0);
+}
+
 /**
  * Schwerwiegender Fehler ist aufgetreten oder die Anzahl normaler Fehler häuft sich. System wird neu gestartet
  **/
@@ -96,28 +102,32 @@ void SystemServiceClass::pushError(const char *errorMessage)
     _lastErrorTime = EspTime.getTime();
 }
 
+void SystemServiceClass::heapSizeCanPushError(bool canPushError)
+{
+    _heapSizeCanPushError = canPushError;
+}
+
 void SystemServiceClass::checkSystem()
 {
     feedWatchdog();
 
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
     int heapSize = esp_get_free_heap_size();
-    ;
     int nextNotificationHeapSize = _startHeapSize * _nextHeapSizeQuoteForNotification;
     sprintf(loggerMessage, "Loosing heapsize: %i", heapSize);
     if (getMillis() > _nextMessageTime)
     {
         _nextMessageTime = getMillis() + 5000;
-        sprintf(loggerMessage, "Heapsize: %i;Startheapsize: %i;limit: %i;quote: %f", heapSize, _startHeapSize, nextNotificationHeapSize, _nextHeapSizeQuoteForNotification);
-        Logger.info("SystemService;checkSystem()", loggerMessage);
+        // sprintf(loggerMessage, "Heapsize: %i;Startheapsize: %i;limit: %i;quote: %f", heapSize, _startHeapSize, nextNotificationHeapSize, _nextHeapSizeQuoteForNotification);
+        // Logger.info("SystemService;checkSystem()", loggerMessage);
     }
 
-    if (_nextHeapSizeQuoteForNotification <= 0.3)
+    if (_heapSizeCanPushError && _nextHeapSizeQuoteForNotification <= 0.3)
     {
         pushFatalError(loggerMessage);
         return;
     }
-    if (heapSize < nextNotificationHeapSize)
+    if (_heapSizeCanPushError && heapSize < nextNotificationHeapSize)
     {
         pushError(loggerMessage);
         _nextHeapSizeQuoteForNotification -= 0.1;

@@ -10,7 +10,7 @@
 #include "sdkconfig.h"
 
 #if CONFIG_CXX_EXCEPTIONS != 1
-#error "C++ exception handling must be enabled within make menuconfig. See Compiler Options > Enable C++ Exceptions."
+//#error "C++ exception handling must be enabled within make menuconfig. See Compiler Options > Enable C++ Exceptions."
 #endif
 
 #include <exception>
