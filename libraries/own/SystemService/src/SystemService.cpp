@@ -84,6 +84,12 @@ void SystemServiceClass::pushFatalError(const char *errorMessage)
     esp_restart();
 }
 
+void SystemServiceClass::restart()
+{
+    resetRestartsCounter();
+    esp_restart();
+}
+
 /**
  * Ein "normaler" Fehler ist aufgetreten. Der Fehlerzähler wird erhöht und bei Erreichen
  * eines kritischen Zählerstandes wird ein FatalError ausgelöst

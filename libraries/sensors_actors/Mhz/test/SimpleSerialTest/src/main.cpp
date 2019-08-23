@@ -14,8 +14,10 @@
 #include <Mhz.h>
 
 const char *SERIAL_LOGGER_TAG = "SLT";
-#define UART_TXD (GPIO_NUM_12)
-#define UART_RXD (GPIO_NUM_13)
+// #define UART_TXD (GPIO_NUM_12)
+// #define UART_RXD (GPIO_NUM_13)
+#define UART_TXD (GPIO_NUM_25)
+#define UART_RXD (GPIO_NUM_33)
 
 #define BUF_SIZE (1024)
 

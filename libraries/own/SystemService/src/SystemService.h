@@ -47,6 +47,8 @@ public:
   void feedWatchdog();
   const char *getResetReasonString(int reasonCode);
 
+  void restart();
+
 private:
   int _restarts = 0;
   int _errors = 0;

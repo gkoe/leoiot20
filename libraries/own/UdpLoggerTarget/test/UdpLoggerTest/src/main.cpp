@@ -4,7 +4,7 @@
 #include "freertos/task.h"
 #include <esp_log.h>
 
-#include "Logger.h"
+#include <Logger.h>
 #include <LoggerTarget.h>
 #include <SerialLoggerTarget.h>
 #include <EspStation.h>
@@ -22,7 +22,6 @@ extern "C"
 }
 
 #define HTTP_OK 200
-
 
 const char *SERIAL_LOGGER_TAG = "SLT";
 
@@ -46,8 +45,11 @@ void app_main()
   HttpServer.init();
   Logger.info("UdpLoggerTest, app_main()", "HttpServer started");
   EspTime.init();
-  EspMqttClient.init(thingName);
   EspUdp.init();
+  UdpLoggerTarget *udpLoggerTargetPtr = new UdpLoggerTarget("ULT", LOG_LEVEL_VERBOSE);
+  Logger.addLoggerTarget(udpLoggerTargetPtr);
+  EspMqttClient.init(thingName);
+
   char loggerMessage[LENGTH_LOGGER_MESSAGE];
   EspConfig.getConfig(loggerMessage, LENGTH_LOGGER_MESSAGE - 1);
   Logger.info("UdpLoggerTest, Config", loggerMessage);

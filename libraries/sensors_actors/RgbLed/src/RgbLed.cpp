@@ -14,7 +14,7 @@ RgbLed::RgbLed(const gpio_num_t pinR, const gpio_num_t pinG, const gpio_num_t pi
 	gpio_set_direction(_pinG, GPIO_MODE_OUTPUT);
 	gpio_pad_select_gpio(_pinB);
 	gpio_set_direction(_pinB, GPIO_MODE_OUTPUT);
-	strcpy(_currentState, "0");
+	setCurrentState("0");
 	Logger.debug("RgbLed", "Constructor");
 }
 
@@ -50,5 +50,5 @@ void RgbLed::setActor(const char *newState)
 	{
 		gpio_set_level(_pinB, 0);
 	}
-	strncpy(_currentState, newState, LENGTH_STATE - 1);
+	setCurrentState(newState);
 }

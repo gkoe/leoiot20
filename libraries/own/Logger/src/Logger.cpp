@@ -3,6 +3,7 @@
 #include <string.h>
 #include <esp_log.h>
 #include "Logger.h"
+#include <UdpLoggerTarget.h>
 
 /*
 	Ein Logeintrag mit folgenden Parametern wird zum Server geschickt:
@@ -60,6 +61,7 @@ void LoggerClass::log(int logLevel, const char *tag, const char *message)
 		// Serial.print(F(", last Value: "));
 		// Serial.println(it->second->getLastMeasurement());
 		LoggerTarget *loggerTarget = *it;
+		//printf("!!! Logger; LogLevel: %i, LoggerTarget: %s, LoggerTargetLevel: %i\n", logLevel, loggerTarget->getName(), loggerTarget->getLogLevel());
 		if (logLevel >= loggerTarget->getLogLevel())
 		{
 			loggerTarget->log(_logLevelTexts[logLevel], tag, message);

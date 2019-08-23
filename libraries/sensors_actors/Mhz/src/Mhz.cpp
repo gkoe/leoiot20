@@ -12,7 +12,7 @@
 /*
   Alle 10 Sekunden CO2-Wert messen und in field speichern
 */
-void measurementInLoopTask(void *pvParameter)
+void mhzMeasurementInLoopTask(void *pvParameter)
 {
   Mhz *mhzPtr = (Mhz *)pvParameter;
 
@@ -29,8 +29,8 @@ void measurementInLoopTask(void *pvParameter)
   @param RX TX pins for the connection. 
          NodeName, name, unit and threshold needs the IotSensor constructor.
 */
-Mhz::Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *name, const char *unit, float threshold)
-    : IotSensor(thingName, name, unit, threshold)
+Mhz::Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue)
+    : IotSensor(thingName, name, unit, threshold, minValue, maxValue)
 {
   uart_config_t uart_config = {
       .baud_rate = 9600,
@@ -47,8 +47,8 @@ Mhz::Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *
   _data = (uint8_t *)malloc(BUF_SIZE);
   _lastMeasurementMilliSeconds = SystemService.getMillis();
   calibrate();
-  xTaskCreate(measurementInLoopTask,   /* Task function. */
-              "measurementInLoopTask", /* String with name of task. */
+  xTaskCreate(mhzMeasurementInLoopTask,   /* Task function. */
+              "mhzMeasurementInLoopTask", /* String with name of task. */
               4096,                    /* Stack size in words. */
               this,                    /* Parameter passed as input of the task */
               1,                       /* Priority of the task. */

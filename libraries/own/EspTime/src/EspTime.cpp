@@ -7,6 +7,7 @@
 
 #include <EspTime.h>
 #include <Constants.h>
+#include <LoggerTarget.h>
 #include <Logger.h>
 #include <EspConfig.h>
 

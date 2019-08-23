@@ -78,7 +78,7 @@ static esp_err_t echoHandler(httpd_req_t *req)
 /**
  * Liefert die Querystringparameter als Map von Key/Value-Pairs zurück
  */
-std::map<char *, char *> getQueryParams(char *queryString)
+std::map<char *, char *> HttpServerClass::getQueryParams(char *queryString)
 {
     char *equalPtr;
     std::map<char *, char *> keyValuePairs = std::map<char *, char *>();
@@ -98,6 +98,17 @@ std::map<char *, char *> getQueryParams(char *queryString)
     return keyValuePairs;
 }
 
+static esp_err_t getRestartHandler(httpd_req_t *req)
+{
+    char loggerMessage[LENGTH_LOGGER_MESSAGE];
+    sprintf(loggerMessage, "Restart ESP by Http");
+    Logger.info("HttpServer;getRestartHandler()", loggerMessage);
+    vTaskDelay(1000 / portTICK_RATE_MS);
+    esp_restart();
+    httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+    return ESP_OK;
+}
+
 /**
  * Die Route /setconfig?key1=xxx&key2=yyy... setzt die
  * entsprechenden Config-Strings im NVS
@@ -105,14 +116,15 @@ std::map<char *, char *> getQueryParams(char *queryString)
 static esp_err_t setconfigHandler(httpd_req_t *req)
 {
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
+    char queryString[LENGTH_LOGGER_MESSAGE];
     esp_err_t err;
     int queryLength = httpd_req_get_url_query_len(req) + 1;
     if (queryLength > 0)
     {
-        err = httpd_req_get_url_query_str(req, loggerMessage, queryLength);
+        err = httpd_req_get_url_query_str(req, queryString, queryLength);
         if (err == ESP_OK)
         {
-            std::map<char *, char *> configPairs = getQueryParams(loggerMessage);
+            std::map<char *, char *> configPairs = HttpServer.getQueryParams(queryString);
             std::map<char *, char *>::iterator itr;
             for (itr = configPairs.begin(); itr != configPairs.end(); itr++)
             {
@@ -143,8 +155,48 @@ static esp_err_t setconfigHandler(httpd_req_t *req)
 static esp_err_t getConfigHandler(httpd_req_t *req)
 {
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
-    EspConfig.getConfig(loggerMessage, LENGTH_LOGGER_MESSAGE - 1);
-    httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+    char configKey[LENGTH_MIDDLE_TEXT];
+    char configValue[LENGTH_MIDDLE_TEXT];
+    char response[LENGTH_LOGGER_MESSAGE];
+    esp_err_t err;
+    int queryLength = httpd_req_get_url_query_len(req) + 1;
+    if (queryLength > 1)
+    {
+        err = httpd_req_get_url_query_str(req, configKey, queryLength);
+        if (err == ESP_OK)
+        {
+            if (configKey != NULL)
+            {
+                EspConfig.getNvsStringValue(configKey, configValue);
+                if (configValue == NULL)
+                {
+                    sprintf(response, "ConfigKey %s not found!", configKey);
+                    httpd_resp_send(req, response, strlen(response));
+                }
+                else
+                {
+                    sprintf(response, "Config key: %s, value: %s", configKey, configValue);
+                    sprintf(loggerMessage, "Response: %s", response);
+                    Logger.info("HttpServer,getConfigHandler()", loggerMessage);
+                    httpd_resp_send(req, response, strlen(response));
+                }
+            }
+        }
+        else
+        {
+            sprintf(loggerMessage, "httpd_req_get_url_query_str() ERROR: %d", err);
+            Logger.error("HttpServer, getConfigHandler()", loggerMessage);
+            httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+        }
+    }
+    else
+    {
+        char loggerMessage[LENGTH_LOGGER_MESSAGE];
+        EspConfig.getConfig(loggerMessage, LENGTH_LOGGER_MESSAGE - 1);
+        httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+        Logger.info("HttpServer, getConfigHandler(), Config:", loggerMessage);
+        httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+    }
     return ESP_OK;
 }
 
@@ -175,6 +227,12 @@ static const httpd_uri_t setconfig = {
     .handler = setconfigHandler,
     .user_ctx = nullptr};
 
+static const httpd_uri_t restart = {
+    .uri = "/restart",
+    .method = HTTP_GET,
+    .handler = getRestartHandler,
+    .user_ctx = nullptr};
+
 static const httpd_uri_t echo = {
     .uri = "/echo",
     .method = HTTP_GET,
@@ -188,7 +246,7 @@ void HttpServerClass::addRoute(const httpd_uri *httpdUri)
     esp_err_t err = httpd_register_uri_handler(_server, httpdUri);
     if (err != ESP_OK)
     {
-        sprintf(loggerMessage, "httpd_register_uri_handler() ERROR: %d", err);
+        sprintf(loggerMessage, "httpd_register_uri_handler(), uri: %s, ERROR: %d", httpdUri->uri, err);
         Logger.error("HttpServer, addRoute()", loggerMessage);
     }
 }
@@ -204,10 +262,11 @@ httpd_handle_t HttpServerClass::startWebserver()
     {
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
-        httpd_register_uri_handler(server, &echo);
+        // httpd_register_uri_handler(server, &echo);
         httpd_register_uri_handler(server, &setconfig);
         httpd_register_uri_handler(server, &getconfig);
         httpd_register_uri_handler(server, &clearconfig);
+        httpd_register_uri_handler(server, &restart);
         // httpd_register_uri_handler(server, &testmqttrequest);
         return server;
     }

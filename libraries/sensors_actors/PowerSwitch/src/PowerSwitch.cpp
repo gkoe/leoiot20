@@ -1,73 +1,58 @@
-//#include <Logger.h>
 #include <PowerSwitch.h>
-#include <PowerSwitchSensor.h>
 #include <Thing.h>
+#include <Logger.h>
 
 /*
 	Der Schalter hat keine Einheit des Messwertes EIN/AUS und auch eine fixe Schwelle von 0.001,
 	da sowieso nur die Werte 0 und 1 verwendet werden.
 */
-PowerSwitch::PowerSwitch(const int pinNumber, const bool isInverse, const char* thingName, const char* name) : Actor(thingName, name)
+PowerSwitch::PowerSwitch(const gpio_num_t pinNumber, const bool isInverse, const char *thingName, const char *name) : IotActor(thingName, name)
 {
 	_pinNumber = pinNumber;
 	_isInverse = isInverse;
-	_commandValue = 0;
-	pinMode(_pinNumber, OUTPUT);
-	if(isInverse){
-		digitalWrite(_pinNumber, 1);
+
+	gpio_pad_select_gpio(_pinNumber);
+	gpio_set_direction(_pinNumber, GPIO_MODE_OUTPUT);
+
+	if (isInverse)
+	{
+		gpio_set_level(_pinNumber, 1);
 	}
-	else{
-		digitalWrite(_pinNumber, 0);
+	else
+	{
+		gpio_set_level(_pinNumber, 0);
 	}
+	setCurrentState("0");
 }
 
-void PowerSwitch::setActorTo(float value)
+void PowerSwitch::setActor(const char *newState)
 {
-	if(_isInverse){
-		if (value > 0.5)
+	bool isOn = (strcmp(newState, "ON") == 0) || (strcmp(newState, "on") == 0) || (strcmp(newState, "1") == 0);
+	if (_isInverse)
+	{
+		if (isOn)
 		{
-			Logger.info(F("PowerSwitch set Actor"), F("Pin low!"));
-			digitalWrite(_pinNumber, 0); // inverse Logik
+			Logger.info("PowerSwitch;setActor()", "1, Pin low!");
+			gpio_set_level(_pinNumber, 0);
 		}
 		else
 		{
-			Logger.info(F("PowerSwitch set Actor"), F("Pin high!"));
-			digitalWrite(_pinNumber, 1);
+			Logger.info("PowerSwitch;setActor()", "0, Pin high!");
+			gpio_set_level(_pinNumber, 1);
 		}
 	}
-	else{  // normale (nicht inverse Logik)
-		if (value > 0.5)
+	else
+	{ // normale (nicht inverse Logik)
+		if (isOn)
 		{
-			Logger.info(F("PowerSwitch set Actor"), F("Pin high!"));
-			digitalWrite(_pinNumber, 1); // normale Logik
+			Logger.info("PowerSwitch;setActor()", "1, Pin high!");
+			gpio_set_level(_pinNumber, 1);
 		}
 		else
 		{
-			Logger.info(F("PowerSwitch set Actor"), F("Pin low!"));
-			digitalWrite(_pinNumber, 0);
-		}
-
-	}
-}
-
-float PowerSwitch::readStateFromActor()
-{
-	if(_isInverse){
-		if (digitalRead(_pinNumber) == HIGH)
-		{
-			return 0;
-		}
-		else{
-			return 1;
+			Logger.info("PowerSwitch;setActor()", "0, Pin low!");
+			gpio_set_level(_pinNumber, 0);
 		}
 	}
-	else{
-		if (digitalRead(_pinNumber) == HIGH)
-		{
-			return 1;
-		}
-		else{
-			return 0;
-		}
-	}
+	setCurrentState(newState);
 }

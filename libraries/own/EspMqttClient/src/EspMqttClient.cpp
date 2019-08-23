@@ -5,6 +5,28 @@
 #include <HttpServer.h>
 // #include <SystemService.h>
 
+static const uint8_t server_cert[]  = 
+  "-----BEGIN CERTIFICATE-----\n\
+MIIDMTCCAhkCFCf35Jhk0YYrT8NKwL9XjywNR+KLMA0GCSqGSIb3DQEBCwUAMFUx\
+CzAJBgNVBAYTAkFUMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRl\
+cm5ldCBXaWRnaXRzIFB0eSBMdGQxDjAMBgNVBAMMBXNzZHBpMB4XDTE5MDgxMzA5\
+MTI1MloXDTIwMDgwNzA5MTI1MlowVTELMAkGA1UEBhMCQVQxEzARBgNVBAgMClNv\
+bWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDEOMAwG\
+A1UEAwwFc3NkcGkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDikkSA\
+QHcjYD7N0aDS3EEeiFE0DT/eIDl/upSNbIZJo6K9hRrBUtzt2gy1qEYUJccJeIc9\
+dLCD8GhT2jMEQ5twg/+EaL08Y7y0RuaPi3q0T9mE65L/8TrngbKm9of6L9aq/nqI\
+V3LAOPZdHOsqpqT/MympKaImH0trjhyGujFWZUa8bUW9sFKHMa3fHRn9NTIjZpcu\
+W8fzDlBbILuh06Od5o8hGM8q0pmbEt3UpJZOOBYVA30Vsd7ZsHHjyILvQFwaSht7\
+2jOjkSYkLuqyedrZ1ipff+hgtCgyR4/ePmxjs0lnhDwwPvTSgQbcx+uFgJc1RPFF\
+g6wCMbg52qdLSJwFAgMBAAEwDQYJKoZIhvcNAQELBQADggEBAE8/oDvyiwiJGkIy\
+xeKCO4K21Q67Wv7JA4kXzcOHa34md+u2/EvIlQEI4sGdodGI7HZtY8Rmw+5LpwOk\
+p2GW3oAVIFNH9C3HsaZp3JvhwFWZTuDlOLNsTPBR00Ga85rhbBcLf5OI2rngF/p0\
+TpQf3Ix65izD5y8Hj9+K6SQ1xMCmNSlJGhz9IHsdzMuc+etHSzkiuwPD303lzsB7\
+wlCj4ONVlohdAmNEPsFN0dfmTej3xlq+gqIMKW8s8j5BGNBUBKGObdMxaQyx7ozj\
+TAP3Z3Qtt4FRUdx6U8/65YW9AuavktdNLX1galRaMbFoLP+XjW9IjMPO+vgW44OI\
+JIUsf6Q=\
+\n-----END CERTIFICATE-----\n";
+
 bool mqttIsConnected = false;
 static esp_mqtt_client_handle_t client;
 
@@ -71,7 +93,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
     snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "mqtt_event_handler(),  topicLength: %d, dataLength: %d", event->topic_len, event->data_len);
     Logger.info("EspMqttClient;length of data", loggerMessage);
     snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "mqtt_event_handler(),  MQTT_EVENT_DATA, topic: %s, data: %s", topic, payload);
-    Logger.info("EspMqttClient, mqtt_event_handler()", loggerMessage);
+    Logger.info("EspMqttClient;mqtt_event_handler()", loggerMessage);
     EspMqttClient.notifySubscribers(topic, payload);
     break;
   case MQTT_EVENT_ERROR:
@@ -108,12 +130,17 @@ bool strStartsWith(char *text, char *pattern)
  */
 void EspMqttClientClass::notifySubscribers(char *topic, char *payload)
 {
-  Logger.info("EspMqttClient notify Subscribers, received topic: ", topic);
+  char loggerMessage[LENGTH_LOGGER_MESSAGE];
+  sprintf(loggerMessage, " received topic: %s", topic);
+  Logger.info("EspMqttClient;notifySubscribers()", loggerMessage);
   for (std::list<MqttSubscription *>::iterator it = _mqttSubscriptions.begin(); it != _mqttSubscriptions.end(); it++)
   {
     MqttSubscription *subscriptionPtr = *it;
-    Logger.info("EspMqttClient notify Subscribers, subscribed topic: ", subscriptionPtr->topic);
-    if (strStartsWith(topic, subscriptionPtr->topic))
+    sprintf(loggerMessage, " subscribed topic: %s", subscriptionPtr->topic);
+
+    Logger.info("EspMqttClient notifySubscribers()", loggerMessage);
+    //if (strStartsWith(topic, subscriptionPtr->topic))
+    if (strcmp(topic, subscriptionPtr->topic)==0)
     {
       char loggerMessage[LENGTH_LOGGER_MESSAGE];
       sprintf(loggerMessage, "Subscriber MATCH, Topic: %s, Filter: %s", topic, subscriptionPtr->topic);
@@ -132,8 +159,8 @@ void EspMqttClientClass::addSubscriptionsToBroker()
   {
     MqttSubscription *subscriptionPtr = *it;
     esp_err_t err = esp_mqtt_client_subscribe(client, subscriptionPtr->topic, 0);
-    snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "%s, Result: %d", subscriptionPtr->topic, err);
-    Logger.error("EspMqttClient;mqtt_event_handler, Topic subscription sent; result: ", loggerMessage);
+    snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "Topic subscription sent: %s, Result: %d", subscriptionPtr->topic, err);
+    Logger.info("EspMqttClient;addSubscriptionsToBroker()", loggerMessage);
   }
 }
 
@@ -183,6 +210,10 @@ static esp_err_t testmqttrequestHandler(httpd_req_t *req)
   return ESP_OK;
 }
 
+bool EspMqttClientClass::isMqttConnected(){
+  return mqttIsConnected;
+}
+
 static const httpd_uri_t testmqttrequest = {
     .uri = "/testmqttrequest",
     .method = HTTP_GET,
@@ -195,13 +226,15 @@ static const httpd_uri_t testmqttrequest = {
  */
 void EspMqttClientClass::init(const char *mainTopic)
 {
-  Logger.info("EspMqttClient;init(), maintopic", mainTopic);
+  char loggerMessage[LENGTH_LOGGER_MESSAGE];
+  sprintf(loggerMessage,"maintopic: %s", mainTopic);
+  Logger.info("EspMqttClient;init()", loggerMessage);
   strcpy(_mainTopic, mainTopic);
   _mqttBroker = EspConfig.getMqttBroker();
   _mqttPort = EspConfig.getMqttBrokerPort();
   _thingName = EspConfig.getThingName();
-  EspConfig.getNvsStringValue("user", _mqttUserName);
-  EspConfig.getNvsStringValue("password", _mqttPassword);
+  EspConfig.getNvsStringValue("mqttuser", _mqttUserName);
+  EspConfig.getNvsStringValue("mqttpassword", _mqttPassword);
   EspConfig.getNvsStringValue("lastwill", _lastWillTopic);
   if (strcmp(_lastWillTopic, "true") == 0)
   {
@@ -211,17 +244,22 @@ void EspMqttClientClass::init(const char *mainTopic)
   {
     strcpy(_lastWillTopic, "");
   }
-  char loggerMessage[LENGTH_LOGGER_MESSAGE];
   snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MQTT-Broker Address: %s:%i", _mqttBroker, _mqttPort);
   char uri[LENGTH_MIDDLE_TEXT];
-  sprintf(uri, "mqtt://%s:%d", _mqttBroker, _mqttPort);
+  sprintf(uri, "mqtts://%s", _mqttBroker);
   esp_mqtt_client_config_t mqtt_cfg = {};
+  mqtt_cfg.username = _mqttUserName;
+  mqtt_cfg.password = _mqttPassword;
+  mqtt_cfg.port = _mqttPort;
   mqtt_cfg.uri = uri;
   mqtt_cfg.event_handle = mqtt_event_handler;
-  snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MQTT-URI: %s", uri);
+  // mqtt_cfg.cert_pem = (const char *)server_cert;
+  mqtt_cfg.cert_pem = nullptr;
+  snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MQTT-URI: %s, Port: %d", mqtt_cfg.uri, mqtt_cfg.port);
+  snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MQTT-User: %s, Password: %s", mqtt_cfg.username, mqtt_cfg.password);
   Logger.info("EspMqttClient;init()", loggerMessage);
   snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MqttConfig-URI: %s", mqtt_cfg.uri);
-  Logger.info("EspMqttClient, init()", loggerMessage);
+  Logger.info("EspMqttClient;init()", loggerMessage);
 
   if (strlen(uri) < 10)
   {
@@ -232,8 +270,8 @@ void EspMqttClientClass::init(const char *mainTopic)
 
   esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
   int result = esp_mqtt_client_start(client);
-  snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "ResultCode: %d", result);
-  Logger.info("EspMqttClient;init(), startClient", loggerMessage);
+  snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "startClient, ResultCode: %d", result);
+  Logger.info("EspMqttClient;init()", loggerMessage);
   HttpServer.addRoute(&testmqttrequest);
 }
 
@@ -248,14 +286,16 @@ bool EspMqttClientClass::publish(const char *topic, const char *payload)
     return false;
   }
   char loggerMessage[LENGTH_LOGGER_MESSAGE];
-  Logger.info("EspMqttClient;publish", "Start");
+  Logger.debug("EspMqttClient;publish", "Start");
   // publish with retained-flag
   char totalTopic[LENGTH_TOPIC];
   sprintf(totalTopic, "%s/%s", _mainTopic, topic);
+  snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "Topic: %s , Payload: %s to publish", totalTopic, payload);
+  Logger.debug("EspMqttClient;vor publish()", loggerMessage);
   int result = -1;
   result = esp_mqtt_client_publish(client, totalTopic, payload, 0, 0, 1);
   snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "Topic: %s , Payload: %s published, result: %d", totalTopic, payload, result);
-  Logger.info("EspMqttClient publish", loggerMessage);
+  Logger.info("EspMqttClient;publish()", loggerMessage);
   return true;
 }
 

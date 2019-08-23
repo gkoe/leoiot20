@@ -45,15 +45,17 @@ class IotActor
 	// muss vom konkreten Aktor implementiert werden
 	virtual void setActor(const char* newState)=0; // Pure virtual function makes this class Abstract class.
 
+	void setCurrentState(const char* state);
+
 	char _thingName[LENGTH_THING_NAME];
 	char _name[LENGTH_THING_NAME];
 	long _time;
-	char _currentState[LENGTH_STATE];
 
   private:
 	MqttSubscription _actorSubscription;
 	char _actorTopic[LENGTH_TOPIC];
 	char _settedState[LENGTH_STATE];
 	char _lastReportedState[LENGTH_STATE];
+	char _currentState[LENGTH_STATE];
 	
 };

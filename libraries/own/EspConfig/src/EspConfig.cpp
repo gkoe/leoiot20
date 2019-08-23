@@ -8,6 +8,7 @@
 
 #include <Constants.h>
 #include <EspConfig.h>
+#include <LoggerTarget.h>
 #include <Logger.h>
 
 void EspConfigClass::init()
@@ -16,18 +17,19 @@ void EspConfigClass::init()
 	esp_err_t err = nvs_flash_init();
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "nvs_flash_init() ERROR: %d", err);
-		Logger.error("EspConfig, init()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1, "nvs_flash_init() ERROR: %d", err);
+		Logger.error("EspConfig;init()", loggerMessage);
 		return;
 	}
 	err = nvs_open("storage", NVS_READWRITE, &_nvsHandle);
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "nvs_open() ERROR: %d", err);
-		Logger.error("EspConfig, init()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"nvs_open() ERROR: %d", err);
+		Logger.error("EspConfig;init()", loggerMessage);
 		return;
 	}
-	Logger.info("EspConfig, init()", "OK!");
+	snprintf(loggerMessage,LENGTH_LOGGER_MESSAGE-1,"ssid=%s, mqttbroker=%s, mqttbrokerport=%i, thingname=%s", getSsid(), getMqttBroker(), getMqttBrokerPort(), getThingName() );
+	Logger.info("EspConfig;init()", loggerMessage);
 }
 
 void EspConfigClass::getNvsStringValue(const char *key, char* value)
@@ -61,19 +63,19 @@ void EspConfigClass::setNvsStringValue(const char *key, const char *value)
 	esp_err_t err = nvs_set_str(_nvsHandle, key, value);
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "nvs_set_str() ERROR: %d", err);
-		Logger.error("EspConfig, setNvsStringValue()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1, "nvs_set_str() ERROR: %d", err);
+		Logger.error("EspConfig;setNvsStringValue()", loggerMessage);
 		return;
 	}
 	err = nvs_commit(_nvsHandle);
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "nvs_commit() ERROR: %d", err);
-		Logger.error("EspConfig, setNvsStringValue()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"nvs_commit() ERROR: %d", err);
+		Logger.error("EspConfig;setNvsStringValue()", loggerMessage);
 		return;
 	}
-	sprintf(loggerMessage, "Key: %s, Value: %s", key, value);
-	Logger.info("EspConfig, setNvsStringValue(), string stored:", loggerMessage);
+	snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1, "Key: %s, Value: %s", key, value);
+	Logger.info("EspConfig;setNvsStringValue(), string stored:", loggerMessage);
 }
 
 void EspConfigClass::setNvsIntValue(const char *key, int value)
@@ -82,19 +84,19 @@ void EspConfigClass::setNvsIntValue(const char *key, int value)
 	esp_err_t err = nvs_set_i32(_nvsHandle, key, value);
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "nvs_set_i32() ERROR: %d", err);
-		Logger.error("EspConfig, setNvsIntValue()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"nvs_set_i32() ERROR: %d", err);
+		Logger.error("EspConfig;setNvsIntValue()", loggerMessage);
 		return;
 	}
 	err = nvs_commit(_nvsHandle);
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "nvs_commit() ERROR: %d", err);
-		Logger.error("EspConfig, setNvsIntValue()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1, "nvs_commit() ERROR: %d", err);
+		Logger.error("EspConfig;setNvsIntValue()", loggerMessage);
 		return;
 	}
-	sprintf(loggerMessage, "Key: %s, Value: %d", key, value);
-	Logger.info("EspConfig, setNvsIntValue(), int stored:", loggerMessage);
+	snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"Key: %s, Value: %d", key, value);
+	Logger.info("EspConfig;setNvsIntValue(), int stored:", loggerMessage);
 }
 
 /**
@@ -106,19 +108,19 @@ void EspConfigClass::deleteKey(const char *key)
 	esp_err_t err = nvs_erase_key(_nvsHandle, key);
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "deleteKey() ERROR: %d", err);
-		Logger.error("EspConfig, nvs_erase_key()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"deleteKey() ERROR: %d", err);
+		Logger.error("EspConfig;nvs_erase_key()", loggerMessage);
 		return;
 	}
 	err = nvs_commit(_nvsHandle);
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "nvs_commit() ERROR: %d", err);
-		Logger.error("EspConfig, deleteKey()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"nvs_commit() ERROR: %d", err);
+		Logger.error("EspConfig;deleteKey()", loggerMessage);
 		return;
 	}
-	sprintf(loggerMessage, "Key: %s", key);
-	Logger.info("EspConfig, deleteKey(), Key deleted", loggerMessage);
+	snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"Key: %s", key);
+	Logger.info("EspConfig;deleteKey(), Key deleted", loggerMessage);
 }
 
 void EspConfigClass::clearConfig()
@@ -128,18 +130,18 @@ void EspConfigClass::clearConfig()
 		esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
 	if (!nvs_partition)
 	{
-		sprintf(loggerMessage, "esp_partition_find_first() ERROR: No NVS partition found");
-		Logger.error("EspConfig, clearConfig()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"esp_partition_find_first() ERROR: No NVS partition found");
+		Logger.error("EspConfig;clearConfig()", loggerMessage);
 		return;
 	}
 	esp_err_t err = (esp_partition_erase_range(nvs_partition, 0, nvs_partition->size));
 	if (err != ESP_OK)
 	{
-		sprintf(loggerMessage, "esp_partition_erase_range() ERROR: %d", err);
-		Logger.error("EspConfig, clearConfig()", loggerMessage);
+		snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE-1,"esp_partition_erase_range() ERROR: %d", err);
+		Logger.error("EspConfig;clearConfig()", loggerMessage);
 		return;
 	}
-	Logger.info("EspConfig, clearConfig()", "OK!");
+	Logger.info("EspConfig;clearConfig()", "OK!");
 }
 
 void EspConfigClass::getConfig(char *buffer, int size)

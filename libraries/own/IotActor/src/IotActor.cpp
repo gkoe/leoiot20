@@ -1,3 +1,6 @@
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 #include "IotActor.h"
 #include <EspTime.h>
 #include <IotSensor.h>
@@ -17,17 +20,17 @@
 static void actorMqttCallback(const char *topic, const char *payload)
 {
 	// Actor aus topic extrahieren
-    int thingNameLength = strlen(EspConfig.getThingName());
+	int thingNameLength = strlen(EspConfig.getThingName());
 	int topicLength = strlen(topic);
-	int actorNameLength = topicLength-thingNameLength-9; // /command am Ende (8 Zeichen) wird nicht mitkopiert
+	int actorNameLength = topicLength - thingNameLength - 9; // /command am Ende (8 Zeichen) wird nicht mitkopiert
 	char loggerMessage[LENGTH_LOGGER_MESSAGE];
 	char actorName[LENGTH_SENSOR_ACTOR_NAME];
-	
-	sprintf(loggerMessage, "Topiclength: %il , ThingNameLength: %i , ActorNameLength: %i", 
-					topicLength, thingNameLength, actorNameLength);
+
+	sprintf(loggerMessage, "Topiclength: %il , ThingNameLength: %i , ActorNameLength: %i",
+			topicLength, thingNameLength, actorNameLength);
 	Logger.info("Actor Mqtt Callback", loggerMessage);
 	strncpy(actorName, topic + thingNameLength + 1, actorNameLength);
-	actorName[actorNameLength]=0;
+	actorName[actorNameLength] = 0;
 	sprintf(loggerMessage, "Actorname: '%s'", actorName);
 	Logger.info("Actor Mqtt Callback", loggerMessage);
 	IotActor *actorPtr = Thing.getActorByName(actorName);
@@ -39,8 +42,9 @@ IotActor::IotActor(const char *thingName, const char *name)
 	strcpy(_thingName, thingName);
 	strcpy(_name, name);
 	_time = EspTime.getTime();
-	strcpy(_settedState, "");
-	strcpy(_currentState, "");
+	strcpy(_settedState, "0");
+	strcpy(_currentState, "0");
+	strcpy(_lastReportedState, "0");
 	strcpy(_actorTopic, EspConfig.getThingName());
 	strcat(_actorTopic, "/");
 	strcat(_actorTopic, getName());
@@ -60,16 +64,21 @@ IotActor::IotActor(const char *thingName, const char *name)
  */
 void IotActor::setStateByMqtt(const char *payload)
 {
-	setState(payload);  // später auf JSON anpassen
+	// {"value":999.9}
+	setState(payload); // später auf JSON anpassen
 }
 
 void IotActor::setState(const char *stateText)
 {
-	strncpy(_settedState,stateText, LENGTH_STATE);
-	sync();
+	portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
+	portENTER_CRITICAL(&myMutex);
+	//critical section
+	strncpy(_settedState, stateText, LENGTH_STATE);
+	portEXIT_CRITICAL(&myMutex);
+	// sync();
 }
 
-char* IotActor::getSettedState()
+char *IotActor::getSettedState()
 {
 	return _settedState;
 }
@@ -88,18 +97,19 @@ char *IotActor::getName()
 */
 void IotActor::sync()
 {
-	if (strcmp(_currentState, _settedState) != 0) {
-		char message[MESSAGE_LENGTH];
-		snprintf(message,MESSAGE_LENGTH-1,"SyncState, currentState: %s, settedState: %s", 
-								_currentState, _settedState);
-		Logger.info("Actor Sync", message);
+	if (strcmp(_currentState, _settedState) != 0)
+	{
+		char loggerMessage[LENGTH_LOGGER_MESSAGE];
+		// snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "SyncState, currentState: %s, settedState: %s",
+		// 		 _currentState, _settedState);
+		// Logger.info("Actor Sync", loggerMessage);
 		setActor(_settedState);
-		if (strcmp(_currentState, _lastReportedState) != 0) {
+		if (strcmp(_currentState, _lastReportedState) != 0)
+		{
 			char fullTopic[LENGTH_TOPIC];
-			sprintf(fullTopic, "%s/%s/state", EspConfig.getThingName(), _name);
+			sprintf(fullTopic, "%s/state", _name);
 			char payload[LENGTH_PAYLOAD];
-			strcpy(payload, _currentState);
-			char loggerMessage[LENGTH_LOGGER_MESSAGE];
+			sprintf(payload, "{\"timestamp\":%ld,\"value\":%s}", EspTime.getTime(), _currentState);
 			sprintf(loggerMessage, "Topic: %s, Payload: %s", fullTopic, payload);
 			Logger.info("Actor Sync", loggerMessage);
 			EspMqttClient.publish(fullTopic, payload);
@@ -108,10 +118,16 @@ void IotActor::sync()
 	}
 }
 
-char* IotActor::getCurrentState()
+char *IotActor::getCurrentState()
 {
 	return _currentState;
 }
 
-	
-
+void IotActor::setCurrentState(const char *state)
+{
+	portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
+	portENTER_CRITICAL(&myMutex);
+	//critical section
+	strcpy(_currentState, state);
+	portEXIT_CRITICAL(&myMutex);
+}

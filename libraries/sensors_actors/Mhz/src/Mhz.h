@@ -5,7 +5,7 @@
 class Mhz : public IotSensor
 {
 public:
-  Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *name, const char *unit, float threshold);
+  Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue);
   float readCo2FromMhz();
   float getCo2();
   void calibrate();

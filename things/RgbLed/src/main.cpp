@@ -19,12 +19,10 @@
 #include <Thing.h>
 #include <RgbLed.h>
 
-
 extern "C"
 {
   void app_main(void);
 }
-
 
 const gpio_num_t R = GPIO_NUM_13;
 const gpio_num_t G = GPIO_NUM_12;
@@ -52,14 +50,16 @@ void app_main()
   HttpServer.init();
   Logger.info("ThingTest, app_main()", "HttpServer started");
   EspTime.init();
-  EspMqttClient.init(thingName);
   EspUdp.init();
+  UdpLoggerTarget *udpLoggerTargetPtr = new UdpLoggerTarget("ULT", LOG_LEVEL_VERBOSE);
+  Logger.addLoggerTarget(udpLoggerTargetPtr);
+  EspMqttClient.init(thingName);
   Thing.init();
   Logger.info("ThingTest, app_main()", "Thing created");
   // >>>>>>>>>>>>>>>>>>>>>>  Thingspezifischer Teil
-	IotActor* rgbLedPtr =
-		 new RgbLed(R,G,B, thingName, "rgbled");
-	Thing.addActor(rgbLedPtr);
+  IotActor *rgbLedPtr =
+      new RgbLed(R, G, B, thingName, "rgbled");
+  Thing.addActor(rgbLedPtr);
   //<<<<<<<<<<<<<<<<<<<<<<< Ende Thingspezifischer Teil
 
   while (true)

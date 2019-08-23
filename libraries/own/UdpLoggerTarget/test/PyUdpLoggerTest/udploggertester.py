@@ -107,13 +107,13 @@ def runClient():
 
 if __name__ == "__main__":
     serverThread = threading.Thread(target=runServer)
-    clientThread = threading.Thread(target=runClient)
+    #clientThread = threading.Thread(target=runClient)
  
     serverThread.start()
-    clientThread.start()
+    #clientThread.start()
  
     serverThread.join()
-    clientThread.join()
+    #clientThread.join()
  
     # both threads completely executed
     print("Done!")

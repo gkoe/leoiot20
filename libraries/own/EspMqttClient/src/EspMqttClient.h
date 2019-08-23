@@ -34,6 +34,7 @@ class EspMqttClientClass
 	void notifySubscribers(char* topic, char *payload);
 	void addSubscriptionsToBroker();
 	void subscribeToBroker();
+	bool isMqttConnected();
 
 	const char* getMainTopic();
 	const char* getLastWillTopic();

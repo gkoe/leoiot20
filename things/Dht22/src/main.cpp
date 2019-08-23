@@ -17,9 +17,8 @@
 #include <UdpLoggerTarget.h>
 #include <Thing.h>
 #include <Dht22.h>
-#include <Dht22_Temperature.h>	// Wrapper über den Dht22 zur Einbindung als Temperatursensor
+#include <Dht22_Temperature.h> // Wrapper über den Dht22 zur Einbindung als Temperatursensor
 #include <Dht22_Humidity.h>
-
 
 extern "C"
 {
@@ -50,19 +49,21 @@ void app_main()
   HttpServer.init();
   Logger.info("ThingTest, app_main()", "HttpServer started");
   EspTime.init();
-  EspMqttClient.init(thingName);
   EspUdp.init();
+  UdpLoggerTarget *udpLoggerTargetPtr = new UdpLoggerTarget("ULT", LOG_LEVEL_VERBOSE);
+  Logger.addLoggerTarget(udpLoggerTargetPtr);
+  EspMqttClient.init(thingName);
   Thing.init();
   Logger.info("ThingTest, app_main()", "Thing created");
   // >>>>>>>>>>>>>>>>>>>>>>  Thingspezifischer Teil
-	Dht22* dhtSensorPtr = new Dht22();
+  Dht22 *dhtSensorPtr = new Dht22();
   dhtSensorPtr->init(DHT22_PIN);
-	IotSensor* temperatureSensorPtr =
-		 new Dht22_Temperature(dhtSensorPtr, thingName, "temperature", "Grad", 0.2);
-	Thing.addSensor(temperatureSensorPtr);
-	IotSensor* humiditySensorPtr =
-		 new Dht22_Humidity(dhtSensorPtr, thingName, "humidity", "%", 0.5);
-	Thing.addSensor(humiditySensorPtr);
+  IotSensor *temperatureSensorPtr =
+      new Dht22_Temperature(dhtSensorPtr, thingName, "temperature", "Grad", 0.2);
+  Thing.addSensor(temperatureSensorPtr);
+  IotSensor *humiditySensorPtr =
+      new Dht22_Humidity(dhtSensorPtr, thingName, "humidity", "%", 0.5);
+  Thing.addSensor(humiditySensorPtr);
   //<<<<<<<<<<<<<<<<<<<<<<< Ende Thingspezifischer Teil
 
   while (true)
