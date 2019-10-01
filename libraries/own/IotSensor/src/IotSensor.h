@@ -18,13 +18,13 @@ class IotSensor
 	const int MAX_INTERVALL = 900;
 	const int MIN_ILLEGAL_VALUE_TIMESPAN = 5000;
 
-  public:
+public:
 	/*
 		Sensor wird mit seinem Namen, einer innerhalb des Things eindeutigen id,
 		der Einheit des Messwertes und der Schwelle, ab der eine Änderung des 
 		Messwertes gemeldet wird.
 	*/
-	IotSensor(const char *thingName, const char *name, const char *unit, float threshold, float minValue = -9999.9, float maxValue = 9999.9);
+	IotSensor(const char *thingName, const char *name, const char *unit, float threshold, float minValue = -9999.9, float maxValue = 9999.9, bool getAverageValue = true);
 
 	/*
 		Liefert den letzten gemessenen Messwert. Dieser muss nicht mit dem 
@@ -33,12 +33,13 @@ class IotSensor
 	*/
 	float getLastMeasurement();
 
-		/*
+	float getAverageValue();
+
+	/*
 		Aktueller Messwert wird eingetragen. Löst bei ausreichender Änderung
 		Notification aus.
 	*/
 	void setMeasurement(float value);
-
 
 	/*
 		Liefert den Namen des Sensors
@@ -56,16 +57,15 @@ class IotSensor
 	virtual void measure(); // abstrakte Sensoren können nicht in Liste verwaltet werden
 	// virtual void measure()=0; // abstrakte Sensoren können nicht in Liste verwaltet werden
 
-	virtual void getMqttPayload(char* payload, float measurement);  //! wozu der char* als Rückgabetyp
+	virtual void getMqttPayload(char *payload, float measurement); //! wozu der char* als Rückgabetyp
 
 	/// statische Hilfsmethoden
 
 	static bool getPinState(gpio_num_t pin);
 
-  protected:
-
-  private:
-  	long _lastIllegalValueTime;
+protected:
+private:
+	long _lastIllegalValueTime;
 	char _thingName[LENGTH_THING_NAME];
 	char _name[LENGTH_MIDDLE_TEXT];
 	char _unit[LENGTH_SHORT_TEXT];
@@ -73,7 +73,10 @@ class IotSensor
 	int _maxIntervall;
 	float _minValue;
 	float _maxValue;
-	float _publishedMeasurement=0.0;		// letzter übertragener Wert
-	float _lastMeasurement=0.0; // letzter gemessener Wert
+	float _publishedMeasurement = 0.0; // letzter übertragener Wert
+	float _lastMeasurement = 0.0;	  // letzter gemessener Wert
 	long _time;
+	uint32_t _lastValues[10];
+	int _actLastValuesIndex = 0;
+	bool _getAverageValue;
 };

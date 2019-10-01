@@ -117,6 +117,7 @@ static esp_err_t setconfigHandler(httpd_req_t *req)
 {
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
     char queryString[LENGTH_LOGGER_MESSAGE];
+    char keyToDelete[LENGTH_MIDDLE_TEXT];
     esp_err_t err;
     int queryLength = httpd_req_get_url_query_len(req) + 1;
     if (queryLength > 0)
@@ -124,12 +125,21 @@ static esp_err_t setconfigHandler(httpd_req_t *req)
         err = httpd_req_get_url_query_str(req, queryString, queryLength);
         if (err == ESP_OK)
         {
-            std::map<char *, char *> configPairs = HttpServer.getQueryParams(queryString);
-            std::map<char *, char *>::iterator itr;
-            for (itr = configPairs.begin(); itr != configPairs.end(); itr++)
+            printf("Querystring: '%s', Length: '%d'\n", queryString, queryLength);
+            if (queryLength > 1 && queryString[queryLength - 2] == '=') //  Zeilenumbruch am Ende,  leere Zuweisung auf Key ==> Key im NVS löschen
             {
-                // printf("Aus Map: Key: %s, Value: %s\n", itr->first, itr->second);
-                EspConfig.setNvsStringValue(itr->first, itr->second);
+                strncpy(keyToDelete, queryString, queryLength - 2);
+                EspConfig.deleteKey(keyToDelete);
+            }
+            else // Key/Value-Pairs im NVS anlegen
+            {
+                std::map<char *, char *> configPairs = HttpServer.getQueryParams(queryString);
+                std::map<char *, char *>::iterator itr;
+                for (itr = configPairs.begin(); itr != configPairs.end(); itr++)
+                {
+                    printf("Aus Map: Key: '%s', Value: '%s'\n", itr->first, itr->second);
+                    EspConfig.setNvsStringValue(itr->first, itr->second);
+                }
             }
         }
         else

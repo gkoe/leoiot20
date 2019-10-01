@@ -13,7 +13,7 @@ private:
 
 
 public:
-	HX711(gpio_num_t dataOutPin, gpio_num_t clockPin, const char *thingName, const char *name, const char *unit, float threshold);
+	HX711(gpio_num_t dataOutPin, gpio_num_t clockPin, const char *thingName, const char *name, const char *unit, float threshold, bool getAverageValue);
 
 	gpio_num_t _dataPin;
 	gpio_num_t _clockPin;

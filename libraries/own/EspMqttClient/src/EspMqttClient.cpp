@@ -246,7 +246,7 @@ void EspMqttClientClass::init(const char *mainTopic)
   }
   snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MQTT-Broker Address: %s:%i", _mqttBroker, _mqttPort);
   char uri[LENGTH_MIDDLE_TEXT];
-  sprintf(uri, "mqtts://%s", _mqttBroker);
+  sprintf(uri, "mqtts://%s", _mqttBroker);  //!! mqtt
   esp_mqtt_client_config_t mqtt_cfg = {};
   mqtt_cfg.username = _mqttUserName;
   mqtt_cfg.password = _mqttPassword;

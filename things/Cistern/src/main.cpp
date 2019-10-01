@@ -75,7 +75,7 @@ void app_main()
   Thing.init();
   Logger.info("Cistern, app_main()", "Thing created");
   // >>>>>>>>>>>>>>>>>>>>>>  Thingspezifischer Teil
-  IotSensor *hx711 = new HX711(HX711_DOUT_PIN, HX711_SCK_PIN, thingName, "weight", "kg", 1);
+  IotSensor *hx711 = new HX711(HX711_DOUT_PIN, HX711_SCK_PIN, thingName, "weight", "kg", 1, true);
   Thing.addSensor(hx711);
   Power *powerPtr = new Power(POWER_ADC_CHANNEL, "power", "power", "W", 2);
   Thing.addSensor(powerPtr);

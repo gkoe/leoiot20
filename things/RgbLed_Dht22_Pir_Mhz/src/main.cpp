@@ -24,8 +24,8 @@
 #include <SimplePir.h>
 #include <Mhz.h>
 
-#define UART_TXD (GPIO_NUM_25)
-#define UART_RXD (GPIO_NUM_33)
+#define UART_TXD (GPIO_NUM_25)  // verbunden mit Rx am Mhz
+#define UART_RXD (GPIO_NUM_33)  // verbunden mit Tx am Mhz
 
 extern "C"
 {
@@ -77,7 +77,7 @@ void app_main()
   Thing.addSensor(humiditySensorPtr);
   IotSensor *pirPtr = new SimplePir(PIR_PIN, 60, thingName, "pir", "", 0);
   Thing.addSensor(pirPtr);
-  Mhz *mhzPtr = new Mhz(UART_RXD, UART_TXD, "Esp", "co2", "ppm", 5.0, 300.0, 5000.0);
+  Mhz *mhzPtr = new Mhz(UART_RXD, UART_TXD, "Esp", "co2", "ppm", 5.0, 300.0, 5000.0, true);
   Thing.addSensor(mhzPtr);
   IotActor *rgbLedPtr =
       new RgbLed(R, G, B, thingName, "rgbled");

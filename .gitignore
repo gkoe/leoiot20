@@ -9,6 +9,7 @@
 
 debug/
 .vscode/
+.pio/
 .pioenvs/
 .piolibdeps/
 .browse.c_cpp.db

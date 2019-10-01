@@ -18,7 +18,11 @@ void mhzMeasurementInLoopTask(void *pvParameter)
 
   while (1)
   {
-    mhzPtr->_ppmCo2 = mhzPtr->readCo2FromMhz();
+    float value = mhzPtr->readCo2FromMhz();
+    if (value >= 0)
+    {
+      mhzPtr->_ppmCo2 = value;
+    }
     vTaskDelay(2000 / portTICK_RATE_MS);
   }
 }
@@ -29,8 +33,8 @@ void mhzMeasurementInLoopTask(void *pvParameter)
   @param RX TX pins for the connection. 
          NodeName, name, unit and threshold needs the IotSensor constructor.
 */
-Mhz::Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue)
-    : IotSensor(thingName, name, unit, threshold, minValue, maxValue)
+Mhz::Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue, bool getAverageValue)
+    : IotSensor(thingName, name, unit, threshold, minValue, maxValue, getAverageValue)
 {
   uart_config_t uart_config = {
       .baud_rate = 9600,
@@ -49,10 +53,10 @@ Mhz::Mhz(gpio_num_t rxPin, gpio_num_t txPin, const char *thingName, const char *
   calibrate();
   xTaskCreate(mhzMeasurementInLoopTask,   /* Task function. */
               "mhzMeasurementInLoopTask", /* String with name of task. */
-              4096,                    /* Stack size in words. */
-              this,                    /* Parameter passed as input of the task */
-              1,                       /* Priority of the task. */
-              NULL                     /* Task handle. */
+              4096,                       /* Stack size in words. */
+              this,                       /* Parameter passed as input of the task */
+              1,                          /* Priority of the task. */
+              NULL                        /* Task handle. */
   );
 }
 

@@ -11,24 +11,16 @@
 #include <EspTime.h>
 #include <Logger.h>
 #include <Constants.h>
-#include <IotSensor.h>
-#include <Thing.h>
+// #include <IotSensor.h>
+// #include <Thing.h>
 #include <SystemService.h>
 
 // #include <sstream>
 
 #define SCAN_TIME 10 // seconds
-//RTC_DATA_ATTR int miFloraIndex = 0;
 
 #define btoa(x) ((x) ? "true" : "false")
 
-// class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
-// {
-//     void onResult(BLEAdvertisedDevice advertisedDevice)
-//     {
-//         Serial.printf("!!! Advertised Device: %s \n", advertisedDevice.toString().c_str());
-//     }
-// };
 // The remote service we wish to connect to.
 static BLEUUID serviceUUID("00001204-0000-1000-8000-00805f9b34fb");
 static BLEUUID miFloraUUID("0000fe95-0000-1000-8000-00805f9b34fb");
@@ -40,26 +32,28 @@ static BLEUUID uuid_sensor_data("00001a01-0000-1000-8000-00805f9b34fb");
 static BLEUUID uuid_write_mode("00001a00-0000-1000-8000-00805f9b34fb");
 
 static BLERemoteCharacteristic *pRemoteCharacteristic;
-//static BLEScanResults foundDevices;
 
-// static char mqttTopicText[400];
-
-void appendTopicAndPayload(IotSensor *sensor, float value)
+static void setNvsStringIfValid(float value, const char *name, float min, float max)
 {
-    // char loggerMessage[LENGTH_LOGGER_MESSAGE];
-    // char topicPayload[LENGTH_TOPIC];
-    // sprintf(topicPayload, "%s/state={\"timestamp\":%ld,\"value\":%.2f};", sensor->getName(), EspTime.getTime(), value);
-    // strcat(mqttTopicText, topicPayload);
-    // snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "mqttTopicText:  %s", mqttTopicText);
-    // Logger.info("MiFlora;appendTopicAndPayload()", loggerMessage);
+    char valueText[LENGTH_SHORT_TEXT];
+
+    if (value >= min && value <= max)
+    {
+        sprintf(valueText, "%.2f", value);
+        EspConfig.setNvsStringValue(name, valueText);
+    }
+    else
+    {
+        EspConfig.setNvsStringValue(name, "");
+    }
 }
 
-bool MiFloraClass::setMiFloraSensorValues(miflora_t *miFlora)
+/**
+ * Einen Miflira auslesen und die Messwerte in NVS speichern
+ */
+bool MiFloraClass::storeMiFloraSensorValuesToNvs(miflora_t *miFlora)
 {
-    // mqttTopicText[0] = 0;
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
-    // sprintf(loggerMessage, "Forming a connection to Flora device at %s", miFlora->macAddress);
-    // Logger.info("MiFlora;setMiFloraSensorValues()", loggerMessage);
     // Connect to the remove BLE Server.
     BLEAddress bleAddress = BLEAddress(std::string(miFlora->macAddress));
     if (!_bleClient->connect(bleAddress))
@@ -117,43 +111,24 @@ bool MiFloraClass::setMiFloraSensorValues(miflora_t *miFlora)
     int conductivity = (float)(val[8] + val[9] * 256);
     // // printf("!!! set moisture %f\n", moisture);
     // // miFlora->moistureSensor->setMeasurement(moisture);
-    // appendTopicAndPayload(miFlora->moistureSensor, moisture);
-    Logger.info("MiFlora;setMiFloraSensorValues();mac:", miFlora->moistureSensor->getName());
-    EspConfig.setNvsStringValue("mac", miFlora->moistureSensor->getName());
+    Logger.info("MiFlora;setMiFloraSensorValues();mac:", miFlora->macAddress);
+    EspConfig.setNvsStringValue("mac", miFlora->macAddress);
 
-    char valueText[LENGTH_SHORT_TEXT];
-
-    sprintf(valueText, "%.2f", moisture);
-    EspConfig.setNvsStringValue("moisture", valueText);
-    Logger.info("MiFlora;setMiFloraSensorValues();moisture:", valueText);
-
-    sprintf(valueText, "%.2f", temperature);
-    EspConfig.setNvsStringValue("temperature", valueText);
-    sprintf(valueText, "%d", brightness);
-    EspConfig.setNvsStringValue("brightness", valueText);
-    sprintf(valueText, "%d", conductivity);
-    EspConfig.setNvsStringValue("conductivity", valueText);
-
-    // // printf("!!! set temperature %f\n", temperature);
-    // // miFlora->temperatureSensor->setMeasurement(temperature);
-    // appendTopicAndPayload(miFlora->temperatureSensor, temperature);
-    // // printf("!!! set brightness %d\n", brightness);
-    // // miFlora->brightnessSensor->setMeasurement(brightness);
-    // appendTopicAndPayload(miFlora->brightnessSensor, brightness);
-    // // printf("!!! set conductivity %d\n", conductivity);
-    // // miFlora->conductivitySensor->setMeasurement(conductivity);
-    // appendTopicAndPayload(miFlora->conductivitySensor, conductivity);
+    setNvsStringIfValid(moisture, "moisture", 0.0, 100.0);
+    setNvsStringIfValid(temperature, "temperature", 0.0, 40.0);
+    setNvsStringIfValid(brightness, "brightness", 0.0, 10000.0);
+    setNvsStringIfValid(conductivity, "conductivity", 0.0, 1000.0);
+    setNvsStringIfValid(miFlora->rssiValue, "rssi", -200.0, 100.0);
 
     Logger.info("MiFlora;setMiFloraSensorValues()", "Trying to retrieve battery level");
+    EspConfig.setNvsStringValue("batteryLevel", ""); // Bei Absturz während auslesen stehen keine falschen Werte im NVS
     pRemoteCharacteristic = pRemoteService->getCharacteristic(uuid_version_battery);
     if (pRemoteCharacteristic == nullptr)
     {
         Logger.error("MiFlora;setMiFloraSensorValues()", "Failed to find battery level characteristic UUID");
-        //Serial.println(uuid_sensor_data.toString().c_str());
-        //_bleClient->disconnect();
         return false;
     }
-    else
+    else // read battery level
     {
         // Read the value of the characteristic...
         value = pRemoteCharacteristic->readValue();
@@ -171,11 +146,10 @@ bool MiFloraClass::setMiFloraSensorValues(miflora_t *miFlora)
         // float batteryLevel = (float)val2[0];
         // miFlora->batteryLevelSensor->setMeasurement(batteryLevel);
         // appendTopicAndPayload(miFlora->batteryLevelSensor, batteryLevel);
-        sprintf(valueText, "%d", batteryLevel);
-        EspConfig.setNvsStringValue("batteryLevel", valueText);
+
+        setNvsStringIfValid(batteryLevel, "batteryLevel", 0.0, 100.0);
     }
-    Logger.info("MiFlora;setNvsString()", "Write to NVS");
-    // EspConfig.setNvsStringValue("MIFLORA_TOPICS", mqttTopicText);
+    Logger.info("MiFlora;setMiFloraSensorValues()", "END of function");
     return true;
 }
 
@@ -183,55 +157,23 @@ void MiFloraClass::closeBleConnection()
 {
     if (_bleClient->isConnected())
         _bleClient->disconnect();
-    // _bleClient->~BLEClient();
-    // BLEDevice::deinit(true);
 }
 
-void attachMiFloraSensors(miflora_t *miFlora)
-{
-    char loggerMessage[LENGTH_LOGGER_MESSAGE];
-    snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MiFlora: %s", miFlora->macAddress);
-    Logger.info("MiFlora;attachMiFloraSensors()", "start");
-    char name[LENGTH_TOPIC];
-    sprintf(name, "%s", miFlora->macAddress);
-    IotSensor *moistureSensor = new IotSensor(EspConfig.getThingName(), name, "%", 1.0, 0.0, 100.0);
-    Thing.addSensor(moistureSensor);
-    miFlora->moistureSensor = moistureSensor;
-    sprintf(name, "%s/%s", miFlora->macAddress, "temperature");
-    IotSensor *temperatureSensor = new IotSensor(EspConfig.getThingName(), name, "°C", 1.0, -20.0, 80.0);
-    Thing.addSensor(temperatureSensor);
-    miFlora->temperatureSensor = temperatureSensor;
-    sprintf(name, "%s/%s", miFlora->macAddress, "brightness");
-    IotSensor *brightnessSensor = new IotSensor(EspConfig.getThingName(), name, "Lux", 1.0, 0.0, 3000.0);
-    Thing.addSensor(brightnessSensor);
-    miFlora->brightnessSensor = brightnessSensor;
-    sprintf(name, "%s/%s", miFlora->macAddress, "conductivity");
-    IotSensor *conductivitySensor = new IotSensor(EspConfig.getThingName(), name, "", 1.0, 0.0, 1000.0);
-    Thing.addSensor(conductivitySensor);
-    miFlora->conductivitySensor = conductivitySensor;
-    sprintf(name, "%s/%s", miFlora->macAddress, "batterylevel");
-    IotSensor *batteryLevelSensor = new IotSensor(EspConfig.getThingName(), name, "%", 1.0, 0.0, 100.0);
-    Thing.addSensor(batteryLevelSensor);
-    miFlora->batteryLevelSensor = batteryLevelSensor;
-    sprintf(name, "%s/%s", miFlora->macAddress, "rssi");
-    IotSensor *rssiSensor = new IotSensor(EspConfig.getThingName(), name, "", 1.0, -150.0, 0.0);
-    Thing.addSensor(rssiSensor);
-    miFlora->rssiSensor = rssiSensor;
-}
-
-void readValuesFromMiFloraTask(miflora_t *miFlora)
-{
-    //printf("!!! readValuesFromMiFloraTask from %s", miFlora->macAddress);
-    attachMiFloraSensors(miFlora);
-    MiFlora.setMiFloraSensorValues(miFlora);
-    MiFlora.closeBleConnection();
-}
-
+/**
+ * Liste nach rssi sortieren ==> Comparer übergeben
+ */
 bool compareByRssi(const miflora_t *first, const miflora_t *second)
 {
-    return (first->rssiSensor < second->rssiSensor);
+    return (first->rssiValue > second->rssiValue);
 }
 
+/**
+ * Der ESP scannt die Umgebung nach erreichbaren (rssi über -90) Mifloras ab.
+ * Je Neustart wird über einen zyklischen Index der nächste Miflora abgefragr und
+ * dessen Werte im NVS gespeichert.
+ * Da sich BLE und https offensichtlich nicht vertragen, wird der ESP neu ohne BLE gestartet
+ * und die Messwerte werden aus dem NVS ausgelesen und per https an den Server übertragen.
+ */
 void scanMiFlorasTask(void *voidPtr)
 {
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
@@ -239,8 +181,7 @@ void scanMiFlorasTask(void *voidPtr)
     MiFloraList *miFloras = (MiFloraList *)voidPtr;
     // Serial.printf("!!! miFloras in search, Count: %d\n", miFloras->size());
     BLEScan *pBLEScan = BLEDevice::getScan(); //create new scan
-    // pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-    pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
+    pBLEScan->setActiveScan(true);            //active scan uses more power, but get results faster
     pBLEScan->setInterval(0x50);
     pBLEScan->setWindow(0x30);
     snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "Start BLE scan for %d seconds...", SCAN_TIME);
@@ -249,19 +190,13 @@ void scanMiFlorasTask(void *voidPtr)
     int count = foundDevices.getCount();
     snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "Found BLE-devices: %d", count);
     Logger.info("MiFlora;scanMiFlorasTask()", loggerMessage);
-    int newMiFlorasCounter = 0;
+
     for (int idx = 0; idx < count; idx++)
     {
         BLEAdvertisedDevice device = foundDevices.getDevice(idx);
-        if (device.haveName())
-        {
-            snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "getDevice() deviceName: %s", device.getName().c_str());
-            Logger.info("MiFlora;scanMiFlorasTask()", loggerMessage);
-        }
         if (device.haveServiceUUID())
         {
             BLEUUID serviceUUID = device.getServiceUUID();
-            // char name[LENGTH_TOPIC];
             snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "device-uuid %s: ", serviceUUID.toString().c_str());
             if (serviceUUID.equals(miFloraUUID)) // Ist der BLE-Server ein MiFlora?
             {
@@ -274,45 +209,34 @@ void scanMiFlorasTask(void *voidPtr)
                 int rssi = device.getRSSI();
                 snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MiFlora %d, address: %s, rssi: %d", idx, macAddress, rssi);
                 Logger.info("MiFlora;scanMiFlorasTask()", loggerMessage);
-                if (rssi >= -90)
+                if (rssi >= -90) // unter -90db ist der Sensor praktisch nicht erreichbar
                 {
                     miflora_t *miFlora;
                     miFlora = new miflora_t();
+                    miFlora->rssiValue = rssi;
                     strcpy(miFlora->macAddress, macAddress);
                     miFloras->push_back(miFlora);
-                    newMiFlorasCounter++;
                 }
-
-                // miflora_t *miFlora;
-                // if (miFloras->find(macAddress) == miFloras->end())
-                // { // MiFlora ist nicht in Map
-                //     //printf("!!! MiFlora not in map\n");
-                //     miFlora = new miflora_t();
-                //     strcpy(miFlora->macAddress, macAddress);
-                //     miFloras->insert({miFlora->macAddress, miFlora});
-                //     newMiFlorasCounter++;
-                //     // Serial.printf("!!! New MiFlora, MAC: %s\n", miFlora->macAddress);
-                // }
-                // else
-                // { // MiFlora ist in Map
-                //     // Serial.println("!!! MiFlora in map");
-                //     miFlora = miFloras->at(macAddress);
-                // }
             }
         }
     }
-    // pBLEScan->clearResults();
     // Serial.println("!!! Scan done!");
     miFloras->sort(compareByRssi);
     int miFlorasCounter = miFloras->size();
-    snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "Scanned mifloras: %d, new: %d", miFlorasCounter, newMiFlorasCounter);
+    snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "Scanned mifloras: %d", miFlorasCounter);
     Logger.info("MiFlora;scanMiFlorasTask()", loggerMessage);
-    //MiFlora.closeBleConnection();
     if (miFloras->size() == 0)
     {
         MiFlora.closeBleConnection();
         vTaskDelete(NULL);
         return;
+    }
+
+    for (std::list<miflora_t *>::iterator it = miFloras->begin(); it != miFloras->end(); ++it)
+    {
+        miflora_t *mifloraPtr = *it;
+        sprintf(loggerMessage, "Sorted by rssi, rssi: %.2f, mac: %s", mifloraPtr->rssiValue, mifloraPtr->macAddress);
+        Logger.info("MiFlora;scanMiFlorasTask()", loggerMessage);
     }
     int miFloraIndex = EspConfig.getNvsIntValue("mifloraindex");
     if (miFloraIndex >= miFlorasCounter)
@@ -321,9 +245,9 @@ void scanMiFlorasTask(void *voidPtr)
         EspConfig.setNvsIntValue("mifloraindex", 0);
     }
 
+    // Zu lessenden MiFlora entsprechend dem im NVS gespeicherten Index suchen
     MiFloraList::iterator it = miFloras->begin();
     int index = 0;
-
     while (index < miFloraIndex && it != miFloras->end())
     {
         it++;
@@ -336,11 +260,11 @@ void scanMiFlorasTask(void *voidPtr)
         return;
     }
     miflora_t *miFlora = *it;
+    miFloraIndex++; // Index des nächsten MiFloras in NVS speichern
+    EspConfig.setNvsIntValue("mifloraindex", miFloraIndex);
     snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "MiFlora %i to read: %s", miFloraIndex, miFlora->macAddress);
     Logger.info("MiFlora;scanMiFlorasTask()", loggerMessage);
-    readValuesFromMiFloraTask(miFlora);
-    miFloraIndex++;
-    EspConfig.setNvsIntValue("mifloraindex", miFloraIndex);
+    MiFlora.storeMiFloraSensorValuesToNvs(miFlora);
     MiFlora.closeBleConnection();
     SystemService.restart();
     vTaskDelete(NULL);
@@ -348,35 +272,20 @@ void scanMiFlorasTask(void *voidPtr)
 
 /**
  * Die erreichbaren MiFloras werden im ersten Schritt gescannt (mal sehen, welche MiFloras es gibt)
- * In den weiteren Aufrufen wird ein MiFlora nach dem anderen abgefragt.
+ * In den weiteren Aufrufen wird je Start nach deepsleep ein MiFlora nach dem anderen abgefragt.
  */
 void MiFloraClass::readNextMiFlora()
 {
     Logger.info("MiFlora;readNextMiFlora()", "start");
-    // if (_bleClient->isConnected())
-    // {
-    //     Logger.warning("MiFlora;readNextMiFlora()", "Client was connected ==> disconnect!");
-    //     closeBleConnection();
-    //     return;
-    // }
-
     // printf("!!! delete old tasks\n");
     if (_scanTask != nullptr)
         vTaskDelete(_scanTask);
     xTaskCreate(scanMiFlorasTask,   /* Task function. */
                 "TaskScanMiFloras", /* String with name of task. */
-                10000,              /* Stack size in words. */
+                4096,               /* Stack size in words. */
                 _miFloras,          /* Parameter passed as input of the task */
                 1,                  /* Priority of the task. */
                 _scanTask);         /* Task handle. */
-    // xTaskCreatePinnedToCore(scanMiFlorasTask,   /* Task function. */
-    //                         "TaskScanMiFloras", /* String with name of task. */
-    //                         10000,              /* Stack size in words. */
-    //                         _miFloras,          /* Parameter passed as input of the task */
-    //                         1,                  /* Priority of the task. */
-    //                         _scanTask,          /* Task handle. */
-    //                         1                   /* Core */
-    // );
 }
 
 void MiFloraClass::init()

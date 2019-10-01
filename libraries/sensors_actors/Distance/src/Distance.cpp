@@ -50,7 +50,7 @@ void measureDistanceInLoopTask(void *pvParameter)
         errorCode = distancePtr->measureDistance(&distance);
         if (errorCode == ESP_OK)
         {
-            distancePtr->setNextDistance(distance);
+            distancePtr->setActDistance(distance);
             // printf("Distance measured: %d\n", distance);
         }
         else
@@ -77,18 +77,14 @@ void measureDistanceInLoopTask(void *pvParameter)
     }
 }
 
-Distance::Distance(gpio_num_t triggerPin, gpio_num_t echoPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue)
-    : IotSensor(thingName, name, unit, threshold, minValue, maxValue)
+Distance::Distance(gpio_num_t triggerPin, gpio_num_t echoPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue, bool getAverageValue)
+    : IotSensor(thingName, name, unit, threshold, minValue, maxValue, getAverageValue)
 {
     gpio_set_direction(triggerPin, GPIO_MODE_OUTPUT);
     gpio_set_direction(echoPin, GPIO_MODE_INPUT);
     gpio_set_level(triggerPin, 0);
     _triggerPin = triggerPin;
     _echoPin = echoPin;
-    for (int i = 0; i < 10; i++)
-    {
-        _lastDistances[i] = -1;
-    }
     xTaskCreate(measureDistanceInLoopTask,   /* Task function. */
                 "measureDistanceInLoopTask", /* String with name of task. */
                 4096,                        /* Stack size in words. */
@@ -98,19 +94,9 @@ Distance::Distance(gpio_num_t triggerPin, gpio_num_t echoPin, const char *thingN
     );
 }
 
-void Distance::setNextDistance(uint32_t distance)
+void Distance::setActDistance(uint32_t distance)
 {
-    _lastDistances[_actIndex] = distance;
-    _actIndex++;
-    if (_actIndex >= 10)
-    {
-        _actIndex = 0;
-    }
-    // portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
-    // taskENTER_CRITICAL(&myMutex);
-    //critical section
-    _actDistance = getAverageDistance();
-    // taskEXIT_CRITICAL(&myMutex);
+    _actDistance = distance;
 }
 
 esp_err_t Distance::measureDistance(uint32_t *distance)
@@ -155,35 +141,6 @@ esp_err_t Distance::measureDistance(uint32_t *distance)
     *distance = (time - echo_start) / ROUNDTRIP;
 
     return ESP_OK;
-}
-
-float Distance::getAverageDistance()
-{
-    int minValue = 1000;
-    int maxValue = 0;
-    int validValues = 0;
-    int sumOfValues = 0;
-    for (int i = 0; i < 10; i++)
-    {
-        if (_lastDistances[i] != -1)
-        {
-            uint32_t value = _lastDistances[i];
-            if (value > maxValue)
-            {
-                maxValue = value;
-            }
-            else if (value < minValue)
-            {
-                minValue = value;
-            }
-            sumOfValues += value;
-            validValues++;
-        }
-    }
-    if (validValues < 3)
-        return -1;
-    //printf("sumOfValues: %d, minValue: %d, maxValue: %d, validValues: %d\n", sumOfValues, minValue, maxValue, validValues);
-    return (sumOfValues - minValue - maxValue) / ((float)validValues - 2);
 }
 
 /**

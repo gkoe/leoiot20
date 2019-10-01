@@ -137,8 +137,8 @@ void measureHx711InLoopTask(void *pvParameter)
     }
 }
 
-HX711::HX711(gpio_num_t dataPin, gpio_num_t clockPin, const char *thingName, const char *name, const char *unit, float threshold)
-    : IotSensor(thingName, name, unit, threshold)
+HX711::HX711(gpio_num_t dataPin, gpio_num_t clockPin, const char *thingName, const char *name, const char *unit, float threshold, bool getAverageValue)
+    : IotSensor(thingName, name, unit, threshold, getAverageValue)
 {
     _dataPin = dataPin;
     _clockPin = clockPin;

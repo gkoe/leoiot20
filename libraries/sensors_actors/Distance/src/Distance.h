@@ -21,7 +21,7 @@
 class Distance : public IotSensor
 {
 public:
-    Distance(gpio_num_t triggerPin, gpio_num_t echoPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue);
+    Distance(gpio_num_t triggerPin, gpio_num_t echoPin, const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue, bool getAverageValue);
     float readDistance();
 
     /**
@@ -32,16 +32,13 @@ public:
     */
     esp_err_t measureDistance(uint32_t *distance);
 
-    float getAverageDistance();
-    void setNextDistance(uint32_t distance);
+    // float getAverageDistance();
+    void setActDistance(uint32_t distance);
 
 private:
     uint8_t *_data;
     gpio_num_t _triggerPin;
     gpio_num_t _echoPin;
-
-    uint32_t _lastDistances[10];
-    int _actIndex = 0;
 
     volatile float _actDistance = -1;
 

@@ -8,8 +8,9 @@
 #include <string.h>
 #include <Logger.h>
 
-IotSensor::IotSensor(const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue)
+IotSensor::IotSensor(const char *thingName, const char *name, const char *unit, float threshold, float minValue, float maxValue, bool getAverageValue)
 {
+	_getAverageValue = getAverageValue;
 	strcpy(_thingName, thingName);
 	strcpy(_name, name);
 	strcpy(_unit, unit);
@@ -20,6 +21,11 @@ IotSensor::IotSensor(const char *thingName, const char *name, const char *unit, 
 	_publishedMeasurement = 0;
 	_lastMeasurement = 0;
 	_time = EspTime.getTime();
+	for (int i = 0; i < 10; i++)
+	{
+		_lastValues[i] = minValue;
+	}
+	_actLastValuesIndex = 0;
 	char loggerMessage[LENGTH_LOGGER_MESSAGE];
 	sprintf(loggerMessage, "Sensor initialized: %s", name);
 	Logger.info("Sensor;Constructor", loggerMessage);
@@ -60,11 +66,21 @@ void IotSensor::setMeasurement(float value)
 		}
 	}
 
-	// portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
-	// portENTER_CRITICAL(&myMutex);
-	//critical section
 	_lastMeasurement = value;
-	// portEXIT_CRITICAL(&myMutex);
+	// Mittelwertsbildung
+	if (_lastValues[_actLastValuesIndex] != value)  // hinter einander gemessene gleiche Werte aus Mittelwertsbildung unterdrücken
+	{
+		_actLastValuesIndex++;
+		if (_actLastValuesIndex >= 10)
+		{
+			_actLastValuesIndex = 0;
+		}
+		_lastValues[_actLastValuesIndex] = value;
+	}
+	if (_getAverageValue)
+	{
+		value = getAverageValue();
+	}
 
 	float delta = value - _publishedMeasurement;
 	if (delta < 0.0)
@@ -72,7 +88,8 @@ void IotSensor::setMeasurement(float value)
 		delta = delta * (-1.0);
 	}
 	time = EspTime.getTime();
-	if (time > _time && (delta >= _threshold || time > _time + _maxIntervall)) // nicht in gleicher Sekunde mehrere Werte publishen
+	if (value > _minValue && value < _maxValue &&
+		  time > _time && (delta >= _threshold || time > _time + _maxIntervall)) // nicht in gleicher Sekunde mehrere Werte publishen
 	{
 		sprintf(loggerMessage, "Neuer Messwert fuer %s: %.1f%s auf %.1f%s, Time: %ld, Last: %ld", _name, _publishedMeasurement, _unit, value, _unit, time, _time);
 		Logger.info("Sensor;set Measurement", loggerMessage);
@@ -86,12 +103,7 @@ void IotSensor::setMeasurement(float value)
 		getMqttPayload(payload, value);
 		sprintf(loggerMessage, "Topic: %s, Payload: %s", fullTopic, payload);
 		Logger.verbose("Sensor;set Measurement", loggerMessage);
-		// portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
-		// portENTER_CRITICAL(&myMutex);
-		// //critical section
 		EspMqttClient.publish(fullTopic, payload);
-		// portEXIT_CRITICAL(&myMutex);
-
 		sprintf(loggerMessage, "%s: %.1f %s,Time: %ld", _name, _publishedMeasurement, _unit, _time);
 		Logger.verbose("Sensor;set Measurement", loggerMessage);
 	}
@@ -126,4 +138,33 @@ void IotSensor::getMqttPayload(char *payload, float measurement)
 bool IotSensor::getPinState(gpio_num_t pin)
 {
 	return gpio_input_get() & (1 << pin);
+}
+
+float IotSensor::getAverageValue()
+{
+	int actMinValue = _maxValue;
+	int actMaxValue = _minValue;
+	int validValues = 0;
+	int sumOfValues = 0;
+	for (int i = 0; i < 10; i++)
+	{
+		if (_lastValues[i] != _minValue)
+		{
+			uint32_t value = _lastValues[i];
+			if (value > actMaxValue)
+			{
+				actMaxValue = value;
+			}
+			else if (value < actMinValue)
+			{
+				actMinValue = value;
+			}
+			sumOfValues += value;
+			validValues++;
+		}
+	}
+	if (validValues < 3)
+		return -1;
+	//printf("sumOfValues: %d, minValue: %d, maxValue: %d, validValues: %d\n", sumOfValues, actMinValue, actMaxValue, validValues);
+	return (sumOfValues - actMinValue - actMaxValue) / ((float)validValues - 2);
 }

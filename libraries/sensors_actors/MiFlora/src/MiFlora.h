@@ -4,7 +4,6 @@
 #include <cstring>
 #include <BLEClient.h>
 #include <BLEAddress.h>
-#include <IotSensor.h>
 
 // const char* mifloraTopicsKey = "MIFLORA_TOPICS";
 
@@ -15,37 +14,33 @@ public:
     { return std::strcmp(str1, str2) < 0; }
 };
 
+/**
+ * Macadresse und Feldstärke werden in einer Liste der gefundenen MiFloras sortiert nach 
+ * Feldstärke gespeichert.
+ */
 struct miflora_t
 {
-  // BLEAddress* bleAddress;
   char macAddress[20];
-  long lastMeasurementTime;
-  IotSensor* moistureSensor;
-  IotSensor* temperatureSensor;
-  IotSensor* rssiSensor;
-  IotSensor* brightnessSensor;
-  IotSensor* batteryLevelSensor;
-  IotSensor* conductivitySensor;
+  float rssiValue;
 };
 
 typedef std::list<miflora_t *> MiFloraList;
 
-struct cmp_str
-{
-   bool operator()(char const *a, char const *b) const
-   {
-      return strcmp(a, b) != 0;
-   }
-};
+// struct cmp_str
+// {
+//    bool operator()(char const *a, char const *b) const
+//    {
+//       return strcmp(a, b) != 0;
+//    }
+// };
 
 class MiFloraClass
 {
 
 public:
   void init();
-  bool setMiFloraSensorValues(miflora_t *miflora);
+  bool storeMiFloraSensorValuesToNvs(miflora_t *miflora);
   void closeBleConnection();
-
   void readNextMiFlora();
 
 private:

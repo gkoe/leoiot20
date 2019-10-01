@@ -18,8 +18,14 @@
 #include <Thing.h>
 #include <Mhz.h>
 
-#define UART_TXD (GPIO_NUM_12)
-#define UART_RXD (GPIO_NUM_13)
+#define UART_TXD (GPIO_NUM_12)  // verbunden mit Rx am Mhz
+#define UART_RXD (GPIO_NUM_13)  // verbunden mit Tx am Mhz
+
+// http://192.168.10.1/setconfig?ssid=SSID&password=PASSWORD
+// http://192.168.10.1/setconfig?ntpserver=192.168.0.2
+// http://192.168.10.1/setconfig?mqttbroker=192.168.0.122&mqttport=1883
+// http://192.168.10.1/setconfig?thingname=co2demo 
+
 
 extern "C"
 {
@@ -54,7 +60,7 @@ void app_main()
   Thing.init();
   Logger.info("MhzThing, app_main()", "Thing created");
   // >>>>>>>>>>>>>>>>>>>>>>  Thingspezifischer Teil
-  Mhz *mhzPtr = new Mhz(UART_RXD, UART_TXD, "Esp", "co2", "ppm", 5.0);
+  Mhz *mhzPtr = new Mhz(UART_RXD, UART_TXD, "Esp", "co2", "ppm", 5.0, 300, 5000);
   Thing.addSensor(mhzPtr);
   //<<<<<<<<<<<<<<<<<<<<<<< Ende Thingspezifischer Teil
 
