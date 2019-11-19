@@ -59,7 +59,7 @@ void app_main()
   Dht22 *dhtSensorPtr = new Dht22();
   dhtSensorPtr->init(DHT22_PIN);
   IotSensor *temperatureSensorPtr =
-      new Dht22_Temperature(dhtSensorPtr, thingName, "temperature", "Grad", 0.2);
+      new Dht22_Temperature(dhtSensorPtr, thingName, "temperature", "Grad", 0.2, -15.0, +45.0);
   Thing.addSensor(temperatureSensorPtr);
   IotSensor *humiditySensorPtr =
       new Dht22_Humidity(dhtSensorPtr, thingName, "humidity", "%", 0.5);

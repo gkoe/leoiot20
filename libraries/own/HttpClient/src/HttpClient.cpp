@@ -81,7 +81,7 @@ void HttpClientClass::getFullUrl(char *fullUrl, const char *url, bool https, con
             sprintf(fullUrl, "http://%s:%s@%s", user, password, url);
         }
     }
-    else  // without authentication
+    else // without authentication
     {
         if (https)
         {
@@ -98,12 +98,16 @@ void HttpClientClass::post(const char *url, const char *payload, bool https, con
 {
     char fullUrl[LENGTH_PAYLOAD];
     getFullUrl(fullUrl, url, https, user, password);
+    esp_http_client_config_t config = {};
+    config.url = fullUrl;
+    config.event_handler = _http_event_handler;
+    config.auth_type = HTTP_AUTH_TYPE_BASIC;
+    config.method=HTTP_METHOD_POST;
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
-    sprintf(loggerMessage, "url: %s", fullUrl);
+    sprintf(loggerMessage, "url: %s, payload: %s", fullUrl, payload);
     Logger.debug("HttpClient, post()", loggerMessage);
-    esp_http_client_handle_t client = getHttpClient(fullUrl);
-    esp_http_client_set_url(client, fullUrl);
-    esp_http_client_set_method(client, HTTP_METHOD_POST);
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    // esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
     esp_http_client_set_post_field(client, payload, strlen(payload));
     esp_err_t err = esp_http_client_perform(client);

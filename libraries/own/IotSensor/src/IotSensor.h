@@ -32,6 +32,7 @@ public:
 		der Schwelle geändert haben kann und daher noch nicht übermittelt wurde.
 	*/
 	float getLastMeasurement();
+	long getLastMeasurementTime();
 
 	float getAverageValue();
 
@@ -75,8 +76,9 @@ private:
 	float _maxValue;
 	float _publishedMeasurement = 0.0; // letzter übertragener Wert
 	float _lastMeasurement = 0.0;	  // letzter gemessener Wert
+	long _lastMeasurementTime=0;
 	long _time;
-	uint32_t _lastValues[10];
+	float _lastValues[10];
 	int _actLastValuesIndex = 0;
 	bool _getAverageValue;
 };

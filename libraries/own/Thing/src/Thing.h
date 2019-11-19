@@ -30,8 +30,8 @@ public:
 	void addActor(IotActor* actor);
 	IotActor* getActorByName(char* name);
 	IotSensor* getSensorByName(char* name);
-	void getAllSensorName(char* names);
-	void getAllActorName(char* names);
+	void getAllSensorNames(char* names);
+	void getAllActorNames(char* names);
 private:
 
 	std::list<IotSensor*> _sensors;

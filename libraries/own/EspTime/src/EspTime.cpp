@@ -13,6 +13,13 @@
 
 static char NTP_SERVER_ADDRESS[] = "0.at.pool.ntp.org"; // "pool.ntp.org"
 
+void EspTimeClass::getDateTimeString(long time, char *buffer)
+{
+	struct tm timeinfo;
+	localtime_r(&time, &timeinfo);
+	strftime(buffer, LENGTH_SHORT_TEXT, "%Y-%m-%d %H:%M:%S", &timeinfo);
+}
+
 void EspTimeClass::getTimeString(char *buffer)
 {
 	struct tm timeinfo;

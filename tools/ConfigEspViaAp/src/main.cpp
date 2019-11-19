@@ -8,8 +8,10 @@
 #include <LoggerTarget.h>
 #include <SerialLoggerTarget.h>
 #include <EspAp.h>
+#include <EspStation.h>
 #include <EspConfig.h>
 #include <HttpServer.h>
+#include <SystemService.h>
 
 extern "C"
 {
@@ -28,19 +30,35 @@ void app_main()
   Logger.init("ConfigEspViaAp");
   SerialLoggerTarget *serialLoggerTarget = new SerialLoggerTarget(SERIAL_LOGGER_TAG, LOG_LEVEL_INFO);
   Logger.addLoggerTarget(serialLoggerTarget);
-  EspAp.init();
-  while (!EspAp.isApStarted())
-  {
-    vTaskDelay(1 / portTICK_PERIOD_MS);
-  }
+  SystemService.init();
+  // EspStation.init();
+  // Logger.info("ConfigEspViaAp, app_main()", "Waiting for connection as station!");
+  // int waitingMilliseconds = 5000;
+  // while (waitingMilliseconds > 0 && !EspStation.isStationOnline())
+  // {
+  //   vTaskDelay(1 / portTICK_PERIOD_MS);
+  //   waitingMilliseconds--;
+  // }
+  // if (!EspStation.isStationOnline())
+  // {
+    EspAp.init();
+    while (!EspAp.isApStarted())
+    {
+      vTaskDelay(1 / portTICK_PERIOD_MS);
+    }
+  // }
+
   char ntpServer[LENGTH_SHORT_TEXT];
   EspConfig.getNvsStringValue("ntpserver", ntpServer);
-  sprintf(loggerMessage, "SSID:%s, ThingName:%s, NtpServer:%s, MqttBroker:%s:%i", EspConfig.getSsid(), EspConfig.getThingName(), 
-              ntpServer, EspConfig.getMqttBroker(), EspConfig.getMqttBrokerPort());
+  sprintf(loggerMessage, "SSID:%s, Password:%s ThingName:%s, NtpServer:%s, MqttBroker:%s:%i", EspConfig.getSsid(), EspConfig.getPassword(), EspConfig.getThingName(),
+          ntpServer, EspConfig.getMqttBroker(), EspConfig.getMqttBrokerPort());
   Logger.info("ConfigEspViaAp", loggerMessage);
   Logger.info("ConfigEspViaAp", "Connect with AP from ESP_xxx");
   HttpServer.init();
-  Logger.info("!!! Config WiFi", "http://192.168.10.1/setconfig?ssid=SSID&password=PASSWORD");
-  Logger.info("!!! Config thing and MQTT", "http://192.168.10.1/setconfig?mqttbroker=192.168.0.1&mqttport=1883&thingname=demo");
-  Logger.info("!!! Check config:", "http://192.168.10.1/getconfig");
+
+  while (true)
+  {
+    SystemService.checkSystem();
+    vTaskDelay(1);
+  }
 }

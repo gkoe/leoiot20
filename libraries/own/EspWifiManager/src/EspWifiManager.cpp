@@ -14,10 +14,9 @@
 #include <Logger.h>
 #include "EspWifiManager.h"
 
-#define EXAMPLE_ESP_WIFI_SSID      "A1-B5035B"
-#define EXAMPLE_ESP_WIFI_PASS      "52809766B6"
-#define EXAMPLE_ESP_MAXIMUM_RETRY  5
-
+#define EXAMPLE_ESP_WIFI_SSID "A1-B5035B"
+#define EXAMPLE_ESP_WIFI_PASS "52809766B6"
+#define EXAMPLE_ESP_MAXIMUM_RETRY 5
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
@@ -32,7 +31,8 @@ static int s_retry_num = 0;
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
-    switch(event->event_id) {
+    switch (event->event_id)
+    {
     case SYSTEM_EVENT_STA_START:
         esp_wifi_connect();
         break;
@@ -43,30 +43,30 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
+    {
+        if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY)
         {
-            if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY) {
-                esp_wifi_connect();
-                xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-                s_retry_num++;
-                ESP_LOGI(TAG,"retry to connect to the AP");
-            }
-            ESP_LOGI(TAG,"connect to the AP fail\n");
-            break;
+            esp_wifi_connect();
+            xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            s_retry_num++;
+            ESP_LOGI(TAG, "retry to connect to the AP");
         }
+        ESP_LOGI(TAG, "connect to the AP fail\n");
+        break;
+    }
     default:
         break;
     }
     return ESP_OK;
 }
 
-
 /**
  * Hilfsmethode zum Loggen von Resultcodes von Wifi-Functions
  */
 void logResultCodeForFunction(const char *module, const char *functionName, esp_err_t resultCode)
 {
-	char loggerMessage[LENGTH_LOGGER_MESSAGE];
-	sprintf(loggerMessage, "Module: %s, Function: %s, result: %d", module, functionName, resultCode);
+    char loggerMessage[LENGTH_LOGGER_MESSAGE];
+    sprintf(loggerMessage, "Module: %s, Function: %s, result: %d", module, functionName, resultCode);
 }
 
 /**
@@ -74,9 +74,9 @@ void logResultCodeForFunction(const char *module, const char *functionName, esp_
  */
 void EspWifiManagerClass::getIpAddress(char *ipAddress)
 {
-	tcpip_adapter_ip_info_t ipInfo;
-	logResultCodeForFunction("getIpAddress", "tcpip_adapter_get_ip_info", tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo));
-	sprintf(ipAddress, "%d.%d.%d.%d", IP2STR(&ipInfo.ip));
+    tcpip_adapter_ip_info_t ipInfo;
+    logResultCodeForFunction("getIpAddress", "tcpip_adapter_get_ip_info", tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo));
+    sprintf(ipAddress, "%d.%d.%d.%d", IP2STR(&ipInfo.ip));
 }
 
 // /**
@@ -153,25 +153,24 @@ bool EspWifiManagerClass::startWifi()
     s_wifi_event_group = xEventGroupCreate();
 
     tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL) );
+    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-	// wifi_sta_config_t stationConfig;
-	// stationConfig.ssid="EXAMPLE_ESP_WIFI_SSID";
-	// stationConfig.password = EXAMPLE_ESP_WIFI_PASS;
+    // wifi_sta_config_t stationConfig;
+    // stationConfig.ssid="EXAMPLE_ESP_WIFI_SSID";
+    // stationConfig.password = EXAMPLE_ESP_WIFI_PASS;
     // wifi_config_t wifi_config = { };
-	// wifi_config.sta = stationConfig;
+    // wifi_config.sta = stationConfig;
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     // ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
-    ESP_ERROR_CHECK(esp_wifi_start() );
+    ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "wifi_init_sta finished.");
     ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
              EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
-			 return true;
+    return true;
 }
-
 
 EspWifiManagerClass EspWifiManager;

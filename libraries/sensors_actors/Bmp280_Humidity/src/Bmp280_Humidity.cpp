@@ -11,9 +11,6 @@ void Bmp280_Humidity::measure()
 {
 	float humidity = _bmp->getHumidity();
 	if(humidity < 0.0 || humidity > 100.0){
-		// char loggerMessage[LENGTH_LOGGER_MESSAGE];
-		// sprintf(loggerMessage, "measure(), illegal value: %f", humidity);
-		// Logger.debug("Dht22_Humidity", loggerMessage);
 		return;
 	}
 	setMeasurement(humidity);

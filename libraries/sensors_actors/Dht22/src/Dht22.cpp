@@ -19,6 +19,8 @@
 
 static char TAG[] = "DHT";
 
+//const int LENGTH_LOGGER_MESSAGE = 300;
+
 /*-----------------------------------------------------------------------
 ;
 ;	Constructor & default settings
@@ -43,22 +45,13 @@ DHT::~DHT( void )
 
 void measurementInLoopTask(void *pvParameter)
 {
-    // char loggerMessage[LENGTH_LOGGER_MESSAGE];
     Dht22 *dhtPtr = (Dht22 *)pvParameter;
-    // sprintf(loggerMessage, "GPIO: %d", dhtPtr->_pin);
-    // Logger.info("Dht, measurementInLoopTask()", loggerMessage);
 
     while (1)
     {
         int ret = dhtPtr->readDht();
         dhtPtr->errorHandler(ret);
-
-        // sprintf(loggerMessage, "Hum: %.1f Tmp: %.1f", dhtPtr->getHumidity(), dhtPtr->getTemperature());
-        // Logger.info("Dht, measurementInLoopTask()", loggerMessage);
-
-        // -- wait at least 2 sec before reading again ------------
-        // The interval of whole process must be beyond 2 seconds !!
-        vTaskDelay(10000 / portTICK_RATE_MS);
+        vTaskDelay(5000 / portTICK_RATE_MS); // 5 Seconds
     }
 }
 
@@ -69,15 +62,25 @@ void Dht22::init(gpio_num_t gpio)
                 "measurementInLoopTask", /* String with name of task. */
                 10000,                   /* Stack size in words. */
                 this,                    /* Parameter passed as input of the task */
-                1,                       /* Priority of the task. */
+                1,                       /* Priority of the task ==> lowest priority */
                 NULL                     /* Task handle. */
     );
 }
 
 // == get temp & hum =============================================
 
-float Dht22::getHumidity() { return _humidity; }
-float Dht22::getTemperature() { return _temperature; }
+float Dht22::getHumidity()
+{
+    float result = _humidity;
+    _humidity = -1000;
+    return result;
+}
+float Dht22::getTemperature()
+{
+    float result = _temperature;
+    _temperature = -1000;
+    return result;
+}
 
 // == error handler ===============================================
 
@@ -85,7 +88,6 @@ void Dht22::errorHandler(int errorCode)
 {
     switch (errorCode)
     {
-
     case DHT_TIMEOUT_ERROR:
         ESP_LOGE(TAG, "Sensor Timeout\n");
         break;
@@ -102,15 +104,11 @@ void Dht22::errorHandler(int errorCode)
     }
 }
 
-/*-------------------------------------------------------------------------------
-;
-;	get next state
-;
-;	I don't like this logic. It needs some interrupt blocking / priority
-;	to ensure it runs in realtime.
-;
-;--------------------------------------------------------------------------------*/
-
+/**
+ * Warten bis der gewünschte Zustand des Pins erreicht ist.
+ * Timeout als Notausgang.
+ * Läuft im Hintergrund in eigenem Task.
+ */
 int Dht22::getSignalLevel(int usTimeOut, bool state)
 {
 
@@ -160,107 +158,104 @@ int Dht22::getSignalLevel(int usTimeOut, bool state)
 		1: 70 us
 ;----------------------------------------------------------------------------*/
 
-#define MAXdhtData 5 // to complete 40 = 5*8 Bits
+const int DhtBytes = 5; // to complete 40 = 5*8 Bits
 
 int Dht22::readDht()
 {
+    char loggerMessage[LENGTH_LOGGER_MESSAGE];
     int uSec = 0;
+    uint8_t dhtData[DhtBytes];
+    uint8_t byteIndex = 0;
+    uint8_t bitIndex = 7;
 
-    uint8_t dhtData[MAXdhtData];
-    uint8_t byteInx = 0;
-    uint8_t bitInx = 7;
-
-    for (int k = 0; k < MAXdhtData; k++)
-        dhtData[k] = 0;
+    for (int i = 0; i < DhtBytes; i++)
+        dhtData[i] = 0;
 
     // == Send start signal to DHT sensor ===========
-
     gpio_set_direction(_pin, GPIO_MODE_OUTPUT);
-
     // pull down for 3 ms for a smooth and nice wake up
     gpio_set_level(_pin, 0);
     ets_delay_us(3000);
-
     // pull up for 25 us for a gentile asking for data
     gpio_set_level(_pin, 1);
     ets_delay_us(25);
-
     gpio_set_direction(_pin, GPIO_MODE_INPUT); // change to input mode
 
     // == DHT will keep the line low for 80 us and then high for 80us ====
-
     uSec = getSignalLevel(85, 0);
     ESP_LOGD(TAG, "Response = %d", uSec);
     if (uSec < 0)
+    {
+        sprintf(loggerMessage, "80 us low");
+        Logger.error("Dht22;readDht()", loggerMessage);
         return DHT_TIMEOUT_ERROR;
-
+    }
     // -- 80us up ------------------------
-
     uSec = getSignalLevel(85, 1);
     ESP_LOGD(TAG, "Response = %d", uSec);
     if (uSec < 0)
-        return DHT_TIMEOUT_ERROR;
-
-    // == No errors, read the 40 data bits ================
-
-    for (int k = 0; k < 40; k++)
     {
-
-        // -- starts new data transmission with >50us low signal
-
-        uSec = getSignalLevel(56, 0);
-        if (uSec < 0)
-            return DHT_TIMEOUT_ERROR;
-
-        // -- check to see if after >70us rx data is a 0 or a 1
-
-        uSec = getSignalLevel(80, 1);  //! 75
-        if (uSec < 0)
-            return DHT_TIMEOUT_ERROR;
-
-        // add the current read to the output data
-        // since all dhtData array where set to 0 at the start,
-        // only look for "1" (>28us us)
-
-        if (uSec > 40)
-        {
-            dhtData[byteInx] |= (1 << bitInx);
-        }
-
-        // index to next byte
-
-        if (bitInx == 0)
-        {
-            bitInx = 7;
-            ++byteInx;
-        }
-        else
-            bitInx--;
+        sprintf(loggerMessage, "80 us high");
+        Logger.error("Dht22;readDht()", loggerMessage);
+        return DHT_TIMEOUT_ERROR;
     }
 
+    // == No errors, read the 40 data bits ================
+    for (int k = 0; k < 40; k++)
+    {
+        // -- starts new data transmission with >50us low signal
+        uSec = getSignalLevel(56, 0);
+        if (uSec < 0)
+        {
+            sprintf(loggerMessage, "start with 50 us low");
+            Logger.error("Dht22;readDht()", loggerMessage);
+            return DHT_TIMEOUT_ERROR;
+        }
+        // -- check to see if after >70us rx data is a 0 or a 1
+        uSec = getSignalLevel(90, 1); //! 75
+        if (uSec < 0)
+        {
+            sprintf(loggerMessage, "data signal max 75 us");
+            Logger.error("Dht22;readDht()", loggerMessage);
+            return DHT_TIMEOUT_ERROR;
+        }
+        if (uSec > 40) // 0 steht schon im Array ==> nur 1 muss gesetzt werden
+        {
+            dhtData[byteIndex] |= (1 << bitIndex);
+        }
+        // index to next byte
+        if (bitIndex == 0)
+        {
+            bitIndex = 7;
+            byteIndex++;
+        }
+        else
+            bitIndex--;
+    }
     // == get humidity from Data[0] and Data[1] ==========================
-
     _humidity = dhtData[0];
     _humidity *= 0x100; // >> 8
     _humidity += dhtData[1];
     _humidity /= 10; // get the decimal
-
     // == get temp from Data[2] and Data[3]
-
     _temperature = dhtData[2] & 0x7F;
     _temperature *= 0x100; // >> 8
     _temperature += dhtData[3];
     _temperature /= 10;
-
     if (dhtData[2] & 0x80) // negative temp, brrr it's freezing
         _temperature *= -1;
-
     // == verify if checksum is ok ===========================================
     // Checksum is the sum of Data 8 bits masked out 0xFF
-
     if (dhtData[4] == ((dhtData[0] + dhtData[1] + dhtData[2] + dhtData[3]) & 0xFF))
+    {
+        // sprintf(loggerMessage, "measurement set, temperature: %.2f, Humidity: %.2f", _temperature, _humidity);
+        // Logger.info("Dht22;readDht()", loggerMessage);
         return DHT_OK;
-
+    }
     else
+    {
+        sprintf(loggerMessage, "CHEKSUMERROR");
+        Logger.error("Dht22;readDht()", loggerMessage);
         return DHT_CHECKSUM_ERROR;
+    }
 }

@@ -139,5 +139,9 @@ float Mhz::readCo2FromMhz()
 */
 void Mhz::measure()
 {
-  setMeasurement(_ppmCo2);
+  if (_ppmCo2 != -1000)
+  {
+    setMeasurement(_ppmCo2);
+    _ppmCo2=-1000;
+  }
 }

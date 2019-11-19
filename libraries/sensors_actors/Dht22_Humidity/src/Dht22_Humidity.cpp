@@ -1,8 +1,8 @@
 #include "Dht22_Humidity.h"
 #include <Logger.h>
 
-Dht22_Humidity::Dht22_Humidity(Dht22* dht, const char* nodeName, const char* name,const char* unit, float threshold, float minValue, float maxValue) 
-		:IotSensor( nodeName, name, unit, threshold, minValue, maxValue)
+Dht22_Humidity::Dht22_Humidity(Dht22* dht, const char* thingName, const char* name,const char* unit, float threshold, float minValue, float maxValue, bool getAverageValue) 
+		:IotSensor( thingName, name, unit, threshold, minValue, maxValue, getAverageValue)
 {
 	_dht = dht;
 }
@@ -10,5 +10,10 @@ Dht22_Humidity::Dht22_Humidity(Dht22* dht, const char* nodeName, const char* nam
 void Dht22_Humidity::measure()
 {
 	float humidity = _dht->getHumidity();
-	setMeasurement(humidity);
+	if (humidity != -1000)
+	{
+		setMeasurement(humidity);
+	}
+	
+	
 }

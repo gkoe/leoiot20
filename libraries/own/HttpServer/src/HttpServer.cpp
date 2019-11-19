@@ -109,86 +109,127 @@ static esp_err_t getRestartHandler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/**
- * Die Route /setconfig?key1=xxx&key2=yyy... setzt die
- * entsprechenden Config-Strings im NVS
- */
-static esp_err_t setconfigHandler(httpd_req_t *req)
+// /**
+//  * Die Route /setconfig?key1=xxx&key2=yyy... setzt die
+//  * entsprechenden Config-Strings im NVS
+//  */
+// static esp_err_t setconfigHandler(httpd_req_t *req)
+// {
+//     char loggerMessage[LENGTH_LOGGER_MESSAGE];
+//     char queryString[LENGTH_LOGGER_MESSAGE];
+//     char keyToDelete[LENGTH_MIDDLE_TEXT];
+//     esp_err_t err;
+//     int queryLength = httpd_req_get_url_query_len(req) + 1;
+//     if (queryLength > 0)
+//     {
+//         err = httpd_req_get_url_query_str(req, queryString, queryLength);
+//         if (err == ESP_OK)
+//         {
+//             printf("Querystring: '%s', Length: '%d'\n", queryString, queryLength);
+//             if (queryLength > 1 && queryString[queryLength - 2] == '=') //  Zeilenumbruch am Ende,  leere Zuweisung auf Key ==> Key im NVS löschen
+//             {
+//                 strncpy(keyToDelete, queryString, queryLength - 2);
+//                 EspConfig.deleteKey(keyToDelete);
+//             }
+//             else // Key/Value-Pairs im NVS anlegen
+//             {
+//                 std::map<char *, char *> configPairs = HttpServer.getQueryParams(queryString);
+//                 std::map<char *, char *>::iterator itr;
+//                 for (itr = configPairs.begin(); itr != configPairs.end(); itr++)
+//                 {
+//                     printf("Aus Map: Key: '%s', Value: '%s'\n", itr->first, itr->second);
+//                     EspConfig.setNvsStringValue(itr->first, itr->second);
+//                 }
+//             }
+//         }
+//         else
+//         {
+//             sprintf(loggerMessage, "httpd_req_get_url_query_str() ERROR: %d", err);
+//             Logger.error("HttpServer, setconfigHandler()", loggerMessage);
+//         }
+//     }
+//     else
+//     {
+//         Logger.info("HttpServer, setconfigHandler(), QueryString:", "NO QUERYSTRING");
+//     }
+//     const char *resp_str = "OK";
+//     err = httpd_resp_send(req, resp_str, strlen(resp_str));
+//     if (err != ESP_OK)
+//     {
+//         sprintf(loggerMessage, "httpd_resp_send() ERROR: %d", err);
+//         Logger.error("HttpServer, setconfigHandler()", loggerMessage);
+//     }
+//     return ESP_OK;
+// }
+
+static esp_err_t configHandler(httpd_req_t *req)
 {
     char loggerMessage[LENGTH_LOGGER_MESSAGE];
-    char queryString[LENGTH_LOGGER_MESSAGE];
+    //char readKey[LENGTH_MIDDLE_TEXT];
+    char queryString[LENGTH_MIDDLE_TEXT];
+    char response[LENGTH_LOGGER_MESSAGE];
     char keyToDelete[LENGTH_MIDDLE_TEXT];
+    char readValue[LENGTH_MIDDLE_TEXT];
     esp_err_t err;
     int queryLength = httpd_req_get_url_query_len(req) + 1;
-    if (queryLength > 0)
+    if (queryLength > 1) // gibt es überhaupt Parameter ==> spezielle Config lesen oder setzen
     {
         err = httpd_req_get_url_query_str(req, queryString, queryLength);
         if (err == ESP_OK)
         {
-            printf("Querystring: '%s', Length: '%d'\n", queryString, queryLength);
-            if (queryLength > 1 && queryString[queryLength - 2] == '=') //  Zeilenumbruch am Ende,  leere Zuweisung auf Key ==> Key im NVS löschen
+            if (queryString != NULL)
             {
-                strncpy(keyToDelete, queryString, queryLength - 2);
-                EspConfig.deleteKey(keyToDelete);
-            }
-            else // Key/Value-Pairs im NVS anlegen
-            {
-                std::map<char *, char *> configPairs = HttpServer.getQueryParams(queryString);
-                std::map<char *, char *>::iterator itr;
-                for (itr = configPairs.begin(); itr != configPairs.end(); itr++)
+                printf("Querystring: '%s', Length: '%d'\n", queryString, queryLength);
+                if (queryLength > 1 && queryString[queryLength - 2] == '=') //  Zeilenumbruch am Ende,  leere Zuweisung auf Key ==> Key im NVS löschen
                 {
-                    printf("Aus Map: Key: '%s', Value: '%s'\n", itr->first, itr->second);
-                    EspConfig.setNvsStringValue(itr->first, itr->second);
-                }
-            }
-        }
-        else
-        {
-            sprintf(loggerMessage, "httpd_req_get_url_query_str() ERROR: %d", err);
-            Logger.error("HttpServer, setconfigHandler()", loggerMessage);
-        }
-    }
-    else
-    {
-        Logger.info("HttpServer, setconfigHandler(), QueryString:", "NO QUERYSTRING");
-    }
-    const char *resp_str = "OK";
-    err = httpd_resp_send(req, resp_str, strlen(resp_str));
-    if (err != ESP_OK)
-    {
-        sprintf(loggerMessage, "httpd_resp_send() ERROR: %d", err);
-        Logger.error("HttpServer, setconfigHandler()", loggerMessage);
-    }
-    return ESP_OK;
-}
-
-static esp_err_t getConfigHandler(httpd_req_t *req)
-{
-    char loggerMessage[LENGTH_LOGGER_MESSAGE];
-    char configKey[LENGTH_MIDDLE_TEXT];
-    char configValue[LENGTH_MIDDLE_TEXT];
-    char response[LENGTH_LOGGER_MESSAGE];
-    esp_err_t err;
-    int queryLength = httpd_req_get_url_query_len(req) + 1;
-    if (queryLength > 1)
-    {
-        err = httpd_req_get_url_query_str(req, configKey, queryLength);
-        if (err == ESP_OK)
-        {
-            if (configKey != NULL)
-            {
-                EspConfig.getNvsStringValue(configKey, configValue);
-                if (configValue == NULL)
-                {
-                    sprintf(response, "ConfigKey %s not found!", configKey);
+                    strncpy(keyToDelete, queryString, queryLength - 2);
+                    keyToDelete[queryLength - 2]=0;
+                    EspConfig.deleteKey(keyToDelete);
+                    sprintf(response, "Config key: %s deleted", keyToDelete);
+                    sprintf(loggerMessage, "Response: %s", response);
+                    Logger.info("HttpServer,configHandler()", loggerMessage);
                     httpd_resp_send(req, response, strlen(response));
                 }
                 else
                 {
-                    sprintf(response, "Config key: %s, value: %s", configKey, configValue);
-                    sprintf(loggerMessage, "Response: %s", response);
-                    Logger.info("HttpServer,getConfigHandler()", loggerMessage);
-                    httpd_resp_send(req, response, strlen(response));
+                    char *configKey;
+                    char *rest = queryString;
+                    char *value = nullptr;
+
+                    configKey = strtok_r(rest, "=", &rest);
+                    if (configKey)
+                    {
+                        sprintf(loggerMessage, "Configname: %s", configKey);
+                        Logger.info("Thing,configHandler()", loggerMessage);
+                        value = strtok_r(rest, "=", &rest);
+                        if (!value) // Abfrage des Configvalues
+                        {
+                            EspConfig.getNvsStringValue(configKey, readValue);
+                            if (readValue == NULL)
+                            {
+                                sprintf(response, "ConfigKey %s not found!", configKey);
+                                Logger.info("HttpServer,configHandler()", loggerMessage);
+                                httpd_resp_send(req, response, strlen(response));
+                            }
+                            else
+                            {
+                                sprintf(response, "Config key: %s, value: %s", configKey, readValue);
+                                sprintf(loggerMessage, "Response: %s", response);
+                                Logger.info("HttpServer,configHandler()", loggerMessage);
+                                httpd_resp_send(req, response, strlen(response));
+                            }
+                        }
+                        else // Setzen des Config-Entry
+                        {
+                            sprintf(loggerMessage, "Value: %s", value);
+                            Logger.info("Thing,configHandler()", loggerMessage);
+                            EspConfig.setNvsStringValue(configKey, value);
+                            sprintf(response, "Config %s set to %s", configKey, value);
+                            sprintf(loggerMessage, "Response: %s", response);
+                            Logger.info("Thing,configHandler()", loggerMessage);
+                            httpd_resp_send(req, response, strlen(response));
+                        }
+                    }
                 }
             }
         }
@@ -199,13 +240,12 @@ static esp_err_t getConfigHandler(httpd_req_t *req)
             httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
         }
     }
-    else
+    else // alle fixen Configs auslesen
     {
         char loggerMessage[LENGTH_LOGGER_MESSAGE];
         EspConfig.getConfig(loggerMessage, LENGTH_LOGGER_MESSAGE - 1);
         httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
         Logger.info("HttpServer, getConfigHandler(), Config:", loggerMessage);
-        httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
     }
     return ESP_OK;
 }
@@ -219,22 +259,16 @@ static esp_err_t clearConfigHandler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static const httpd_uri_t getconfig = {
-    .uri = "/getconfig",
+static const httpd_uri_t configUri = {
+    .uri = "/config",
     .method = HTTP_GET,
-    .handler = getConfigHandler,
+    .handler = configHandler,
     .user_ctx = nullptr};
 
 static const httpd_uri_t clearconfig = {
     .uri = "/clearconfig",
     .method = HTTP_GET,
     .handler = clearConfigHandler,
-    .user_ctx = nullptr};
-
-static const httpd_uri_t setconfig = {
-    .uri = "/setconfig",
-    .method = HTTP_GET,
-    .handler = setconfigHandler,
     .user_ctx = nullptr};
 
 static const httpd_uri_t restart = {
@@ -273,8 +307,7 @@ httpd_handle_t HttpServerClass::startWebserver()
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
         // httpd_register_uri_handler(server, &echo);
-        httpd_register_uri_handler(server, &setconfig);
-        httpd_register_uri_handler(server, &getconfig);
+        httpd_register_uri_handler(server, &configUri);
         httpd_register_uri_handler(server, &clearconfig);
         httpd_register_uri_handler(server, &restart);
         // httpd_register_uri_handler(server, &testmqttrequest);

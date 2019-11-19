@@ -2,6 +2,7 @@
 #include <EspMqttClient.h>
 #include <EspConfig.h>
 #include <HttpServer.h>
+#include <EspTime.h>
 #include <Logger.h>
 
 // bool splitPair(char *text, const char *delimiter, char *first, char *second)
@@ -15,16 +16,17 @@
 // }
 
 /**
- * eigene http-Route zum Setzen eines Aktorwertes  /setactor?rgbled=010
+ * eigene http-Route zum Lesen /actor?rgbled und Setzen eines Aktorwertes  /actor?rgbled=010
+ * Abfrage aller Actornamen über /actor
  */
-static esp_err_t setActorRequestHandler(httpd_req_t *req)
+static esp_err_t actorRequestHandler(httpd_req_t *req)
 {
 	char loggerMessage[LENGTH_LOGGER_MESSAGE];
 	char queryString[LENGTH_MIDDLE_TEXT];
 	char response[LENGTH_MIDDLE_TEXT];
 	esp_err_t err;
 	int queryLength = httpd_req_get_url_query_len(req) + 1;
-	if (queryLength > 0)
+	if (queryLength > 1)  // gibt es überhaupt Parameter ==> speziellen Actor lesen oder setzen
 	{
 		err = httpd_req_get_url_query_str(req, queryString, queryLength);
 		if (err == ESP_OK)
@@ -35,45 +37,44 @@ static esp_err_t setActorRequestHandler(httpd_req_t *req)
 				char *value = nullptr;
 				char *rest = queryString;
 				actorName = strtok_r(rest, "=", &rest);
-				bool ok = true;
 				if (actorName)
 				{
-					value = strtok_r(rest, "=", &rest);
-					if (!value)
-					{
-						ok = false;
-					}
-				}
-				else
-				{
-					ok = false;
-				}
-				if (ok)
-				{
-					sprintf(loggerMessage, "Splitted: %s %s", actorName, value);
-					Logger.info("Thing,setActorRequestHandler()", loggerMessage);
+					sprintf(loggerMessage, "Actorname: %s", actorName);
+					Logger.info("Thing,actorRequestHandler()", loggerMessage);
 					IotActor *actor = Thing.getActorByName(actorName);
 					if (actor == nullptr)
 					{
 						sprintf(response, "Actor %s not found!", actorName);
 						sprintf(loggerMessage, "Response: %s", response);
-						Logger.info("Thing,setActorRequestHandler()", loggerMessage);
+						Logger.info("Thing,actorRequestHandler()", loggerMessage);
 						httpd_resp_send(req, response, strlen(response));
 					}
-					else
+					else // Actor existiert
 					{
-						actor->setState(value);
-						sprintf(response, "Actors's %s set from %s to %s", actorName, actor->getCurrentState(), actor->getSettedState());
-						sprintf(loggerMessage, "Response: %s", response);
-						Logger.info("Thing,setActorRequestHandler()", loggerMessage);
-						httpd_resp_send(req, response, strlen(response));
+						value = strtok_r(rest, "=", &rest);
+						if (!value) // Abfrage des Actors
+						{
+							char *state = actor->getCurrentState();
+							sprintf(response, "Actors's %s state %s", actorName, state);
+							sprintf(loggerMessage, "Response: %s", response);
+							Logger.info("Thing,actorStateRequestHandler()", loggerMessage);
+							httpd_resp_send(req, response, strlen(response));
+						}
+						else // Setzen des Actors
+						{
+							actor->setState(value);
+							sprintf(response, "Actors's %s set from %s to %s", actorName, actor->getCurrentState(), actor->getSettedState());
+							sprintf(loggerMessage, "Response: %s", response);
+							Logger.info("Thing,actorRequestHandler()", loggerMessage);
+							httpd_resp_send(req, response, strlen(response));
+						}
 					}
-				}
+				}  // kein Actorname im Querystring
 				else
 				{
 					sprintf(response, "No actor=value in querystring: %s", queryString);
 					sprintf(loggerMessage, "Response: %s", response);
-					Logger.info("Thing,setActorRequestHandler()", loggerMessage);
+					Logger.info("Thing,actorRequestHandler()", loggerMessage);
 					httpd_resp_send(req, response, strlen(response));
 				}
 			}
@@ -81,22 +82,28 @@ static esp_err_t setActorRequestHandler(httpd_req_t *req)
 			{
 				sprintf(response, "QUERYSTRING IS NULL");
 				sprintf(loggerMessage, "Response: %s", response);
-				Logger.error("Thing, setActorRequestHandler()", loggerMessage);
+				Logger.error("Thing, actorRequestHandler()", loggerMessage);
 				httpd_resp_send(req, response, strlen(response));
 			}
 		}
 		else
 		{
 			sprintf(loggerMessage, "httpd_req_get_url_query_str() ERROR: %d", err);
-			Logger.error("Thing, setActorRequestHandler()", loggerMessage);
+			Logger.error("Thing, actorRequestHandler()", loggerMessage);
 			httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
 		}
 	}
 	else
 	{
-		sprintf(loggerMessage, "NO QUERYSTRING");
-		Logger.info("Thing, setActorRequestHandler(), QueryString:", "NO QUERYSTRING");
+		char loggerMessage[LENGTH_LOGGER_MESSAGE];
+		Thing.getAllActorNames(loggerMessage);
+		if (strlen(loggerMessage) == 0)
+		{
+			sprintf(loggerMessage, "No Actor in thing");
+		}
+		
 		httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+		Logger.info("HttpServer, actorStateRequestHandler(), Actors:", loggerMessage);
 	}
 	return ESP_OK;
 }
@@ -104,13 +111,13 @@ static esp_err_t setActorRequestHandler(httpd_req_t *req)
 /**
  * eigene http-Route zum Abfragen eines Sensorwertes  /getsensor?temperature
  */
-static esp_err_t getSensorRequestHandler(httpd_req_t *req)
+static esp_err_t sensorRequestHandler(httpd_req_t *req)
 {
 	char loggerMessage[LENGTH_LOGGER_MESSAGE];
 	char sensorName[LENGTH_MIDDLE_TEXT];
 	esp_err_t err;
 	int queryLength = httpd_req_get_url_query_len(req) + 1;
-	if (queryLength > 0)
+	if (queryLength > 1)
 	{
 		err = httpd_req_get_url_query_str(req, sensorName, queryLength);
 		if (err == ESP_OK)
@@ -118,7 +125,7 @@ static esp_err_t getSensorRequestHandler(httpd_req_t *req)
 			if (sensorName != NULL)
 			{
 				IotSensor *sensor = Thing.getSensorByName(sensorName);
-				char response[LENGTH_MIDDLE_TEXT];
+				char response[LENGTH_PAYLOAD];
 				if (sensor == NULL)
 				{
 					sprintf(response, "Sensor %s not found!", sensorName);
@@ -127,9 +134,12 @@ static esp_err_t getSensorRequestHandler(httpd_req_t *req)
 				else
 				{
 					float measurement = sensor->getLastMeasurement();
-					sprintf(response, "Sensor's %s value %.2f %s", sensorName, measurement, sensor->getUnit());
+					long time = sensor->getLastMeasurementTime();
+					char timeString[LENGTH_SHORT_TEXT];
+					EspTime.getDateTimeString(time, timeString);
+					sprintf(response, "{\"sensor\": %s,\"time\": %s,\"value\": %.2f %s}", sensorName, timeString, measurement, sensor->getUnit());
 					sprintf(loggerMessage, "Response: %s", response);
-					Logger.info("Thing,getSensorRequestHandler()", loggerMessage);
+					Logger.info("This()", loggerMessage);
 					httpd_resp_send(req, response, strlen(response));
 				}
 			}
@@ -137,84 +147,95 @@ static esp_err_t getSensorRequestHandler(httpd_req_t *req)
 		else
 		{
 			sprintf(loggerMessage, "httpd_req_get_url_query_str() ERROR: %d", err);
-			Logger.error("Thing, getSensorRequestHandler()", loggerMessage);
+			Logger.error("Thins()", loggerMessage);
 			httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
 		}
 	}
 	else
 	{
-		sprintf(loggerMessage, "NO QUERYSTRING");
-		Logger.info("Thing, getSensorRequestHandler(), QueryString:", "NO QUERYSTRING");
+		char loggerMessage[LENGTH_LOGGER_MESSAGE];
+		Thing.getAllSensorNames(loggerMessage);
+		if (strlen(loggerMessage) == 0)
+		{
+			sprintf(loggerMessage, "No Sensor in thing");
+		}
+		
 		httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+		Logger.info("HttpServer, getSensorHandler(), Sensors:", loggerMessage);
 	}
 	return ESP_OK;
 }
 
-/**
- * eigene http-Route zum Abfragen eines Aktorwertes  /getactor?switch
- */
-static esp_err_t getActorStateRequestHandler(httpd_req_t *req)
-{
-	char loggerMessage[LENGTH_LOGGER_MESSAGE];
-	char actorName[LENGTH_MIDDLE_TEXT];
-	esp_err_t err;
-	int queryLength = httpd_req_get_url_query_len(req) + 1;
-	if (queryLength > 0)
-	{
-		err = httpd_req_get_url_query_str(req, actorName, queryLength);
-		if (err == ESP_OK)
-		{
-			if (actorName != NULL)
-			{
-				IotActor *sensor = Thing.getActorByName(actorName);
-				char response[LENGTH_MIDDLE_TEXT];
-				if (sensor == NULL)
-				{
-					sprintf(response, "Actor %s not found!", actorName);
-					httpd_resp_send(req, response, strlen(response));
-				}
-				else
-				{
-					char *state = sensor->getCurrentState();
-					sprintf(response, "Actors's %s state %s", actorName, state);
-					sprintf(loggerMessage, "Response: %s", response);
-					Logger.info("Thing,getActorStateRequestHandler()", loggerMessage);
-					httpd_resp_send(req, response, strlen(response));
-				}
-			}
-		}
-		else
-		{
-			sprintf(loggerMessage, "httpd_req_get_url_query_str() ERROR: %d", err);
-			Logger.error("Thing, getActorStateRequestHandler()", loggerMessage);
-			httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
-		}
-	}
-	else
-	{
-		sprintf(loggerMessage, "NO QUERYSTRING");
-		Logger.info("Thing, getActorStateRequestHandler(), QueryString:", "NO QUERYSTRING");
-		httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
-	}
-	return ESP_OK;
-}
+// /**
+//  * eigene http-Route zum Abfragen eines Aktorwertes  /getactor?switch
+//  */
+// static esp_err_t actorStateRequestHandler(httpd_req_t *req)
+// {
+// 	char loggerMessage[LENGTH_LOGGER_MESSAGE];
+// 	char actorName[LENGTH_MIDDLE_TEXT];
+// 	esp_err_t err;
+// 	int queryLength = httpd_req_get_url_query_len(req) + 1;
+// 	if (queryLength > 1)
+// 	{
+// 		err = httpd_req_get_url_query_str(req, actorName, queryLength);
+// 		if (err == ESP_OK)
+// 		{
+// 			if (actorName != NULL)
+// 			{
+// 				IotActor *actor = Thing.getActorByName(actorName);
+// 				char response[LENGTH_MIDDLE_TEXT];
+// 				if (actor == NULL)
+// 				{
+// 					sprintf(response, "Actor %s not found!", actorName);
+// 					httpd_resp_send(req, response, strlen(response));
+// 				}
+// 				else
+// 				{
+// 					char *state = actor->getCurrentState();
+// 					sprintf(response, "Actors's %s state %s", actorName, state);
+// 					sprintf(loggerMessage, "Response: %s", response);
+// 					Logger.info("Thing,getActorStateRequestHandler()", loggerMessage);
+// 					httpd_resp_send(req, response, strlen(response));
+// 				}
+// 			}
+// 		}
+// 		else
+// 		{
+// 			sprintf(loggerMessage, "httpd_req_get_url_query_str() ERROR: %d", err);
+// 			Logger.error("Thing, getActorStateRequestHandler()", loggerMessage);
+// 			httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+// 		}
+// 	}
+// 	else
+// 	{
+// 		char loggerMessage[LENGTH_LOGGER_MESSAGE];
+// 		Thing.getAllActorNames(loggerMessage);
+// 		httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+// 		Logger.info("HttpServer, getActorStateRequestHandler(), Actors:", loggerMessage);
 
-static const httpd_uri_t getsensorrequest = {
-	.uri = "/getsensor",
+// 		// sprintf(loggerMessage, "NO QUERYSTRING");
+// 		// Logger.info("Thing, getActorStateRequestHandler(), QueryString:", "NO QUERYSTRING");
+// 		// httpd_resp_send(req, loggerMessage, strlen(loggerMessage));
+// 	}
+// 	return ESP_OK;
+// }
+
+static const httpd_uri_t sensorrequest = {
+	.uri = "/sensor",
 	.method = HTTP_GET,
-	.handler = getSensorRequestHandler,
+	.handler = sensorRequestHandler,
 	.user_ctx = nullptr};
 
-static const httpd_uri_t getactorrequest = {
-	.uri = "/getactor",
-	.method = HTTP_GET,
-	.handler = getActorStateRequestHandler,
-	.user_ctx = nullptr};
+// static const httpd_uri_t getactorrequest = {
+// 	.uri = "/getactor",
+// 	.method = HTTP_GET,
+// 	.handler = getActorStateRequestHandler,
+// 	.user_ctx = nullptr};
 
-static const httpd_uri_t setactorrequest = {
-	.uri = "/setactor",
+static const httpd_uri_t actorrequest = {
+	.uri = "/actor",
 	.method = HTTP_GET,
-	.handler = setActorRequestHandler,
+	.handler = actorRequestHandler,
 	.user_ctx = nullptr};
 
 /*
@@ -227,9 +248,9 @@ void ThingClass::init()
 	char loggerMessage[LENGTH_LOGGER_MESSAGE];
 	sprintf(loggerMessage, "Thing init with name: %s", EspConfig.getThingName());
 	Logger.info("ThingClass Init", loggerMessage);
-	HttpServer.addRoute(&getsensorrequest);
-	HttpServer.addRoute(&setactorrequest);
-	HttpServer.addRoute(&getactorrequest);
+	HttpServer.addRoute(&sensorrequest);
+	HttpServer.addRoute(&actorrequest);
+	// HttpServer.addRoute(&getactorrequest);
 }
 
 void ThingClass::addSensor(IotSensor *sensorPtr)
@@ -293,9 +314,10 @@ IotSensor *ThingClass::getSensorByName(char *name)
 	return nullptr;
 }
 
-void ThingClass::getAllSensorName(char *names)
+void ThingClass::getAllSensorNames(char *names)
 {
 	bool x = false;
+	names[0] = 0;
 	for (std::list<IotSensor *>::iterator it = _sensors.begin(); it != _sensors.end(); ++it)
 	{
 		x = true;
@@ -305,17 +327,18 @@ void ThingClass::getAllSensorName(char *names)
 	}
 	if (x)
 	{
-		Logger.info("Thing Get Sensor Name", names);
+		Logger.info("Thing; getAllSensorNames()", names);
 	}
 	else
 	{
-		Logger.info("Thing Get Sensor Name", "No Sensors");
+		Logger.info("Thing; getAllSensorNames()", "No Sensors");
 	}
 }
 
-void ThingClass::getAllActorName(char *names)
+void ThingClass::getAllActorNames(char *names)
 {
 	bool x = false;
+	names[0] = 0;
 	for (std::list<IotActor *>::iterator it = _actors.begin(); it != _actors.end(); ++it)
 	{
 		x = true;
@@ -325,11 +348,11 @@ void ThingClass::getAllActorName(char *names)
 	}
 	if (x)
 	{
-		Logger.info("Thing Get Actor Name", names);
+		Logger.info("Thing getAllActorNames()", names);
 	}
 	else
 	{
-		Logger.info("Thing Get Actor Name", "No Actor");
+		Logger.info("Thing getAllActorNames()", "No Actor");
 	}
 }
 

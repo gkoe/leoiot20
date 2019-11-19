@@ -58,12 +58,12 @@ void EspStationClass::init()
     char *ssid = EspConfig.getSsid();
     if (strlen(ssid) == 0)
     {
-        Logger.error("EspStation, init()", "SSID empty!");
+        Logger.error("EspStation, init()", "!!!!!!!!!!!!!!!!! SSID empty !!!!!!!!!!!!!!!!!");
     }
     char *password = EspConfig.getPassword();
     if (strlen(password) == 0)
     {
-        Logger.error("EspStation, init()", "PASSWORD empty!");
+        Logger.error("EspStation, init()", "!!!!!!!!!!!!!!!!!!! PASSWORD empty !!!!!!!!!!!!!!!!!");
     }
 
     tcpip_adapter_init();

@@ -12,26 +12,41 @@
 
 void measureBmp280InLoopTask(void *pvParameter)
 {
+    char loggerMessage[LENGTH_LOGGER_MESSAGE];
     Bmp280Sensor *bmp280SensorPtr = (Bmp280Sensor *)pvParameter;
+    esp_err_t res;
+    bmp280_params_t params;
+    bmp280_init_default_params(&params);
 
     while (1)
     {
-        bmp280SensorPtr->readBmp280();
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        while ((res = bmp280_init(&bmp280SensorPtr->_device, &params)) != ESP_OK)
+        {
+            snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "bmp280_init(), error: %d", res);
+            Logger.error("Bmp280Sensor;measureBmp280InLoopTask()", loggerMessage);
+            vTaskDelay(250 / portTICK_PERIOD_MS);
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        if ((res = bmp280_read_float(&bmp280SensorPtr->_device, &bmp280SensorPtr->_temperature, &bmp280SensorPtr->_pressure, &bmp280SensorPtr->_humidity)) != ESP_OK)
+        {
+            snprintf(loggerMessage, LENGTH_LOGGER_MESSAGE - 1, "temperature/humidity/pressure reading failed:%d ", res);
+            Logger.error("Bmp280Sensor;measureBmp280InLoopTask()", loggerMessage);
+        }
     }
 }
 
-int Bmp280Sensor::readBmp280()
-{
-    if (bmp280_read_float(&_device, &_temperature, &_pressure, &_humidity) != ESP_OK)
-    {
-        printf("Temperature/pressure reading failed\n");
-        return -1;
-    }
+// int Bmp280Sensor::readBmp280()
+// {
+//     if (bmp280_read_float(&_device, &_temperature, &_pressure, &_humidity) != ESP_OK)
+//     {
+//         printf("Temperature/pressure reading failed\n");
+//         return -1;
+//     }
 
-    // printf("Pressure: %.2f Pa, Temperature: %.2f °C, Humidity: %.2f %%\n", _pressure, _temperature, _humidity);
-    return 0;
-}
+//     // printf("Pressure: %.2f Pa, Temperature: %.2f °C, Humidity: %.2f %%\n", _pressure, _temperature, _humidity);
+//     return 0;
+// }
 
 Bmp280Sensor::Bmp280Sensor(gpio_num_t sdaPin, gpio_num_t sclPin)
 {
@@ -67,7 +82,14 @@ Bmp280Sensor::Bmp280Sensor(gpio_num_t sdaPin, gpio_num_t sclPin)
 
     bool bme280p = _device.id == BME280_CHIP_ID;
     printf("BMP280: found %s\n", bme280p ? "BME280" : "BMP280");
-    xTaskCreatePinnedToCore(measureBmp280InLoopTask, "measureBmp280InLoopTask", configMINIMAL_STACK_SIZE * 8, this, 5, NULL, APP_CPU_NUM);
+    //xTaskCreatePinnedToCore(measureBmp280InLoopTask, "measureBmp280InLoopTask", configMINIMAL_STACK_SIZE * 8, this, 5, NULL, APP_CPU_NUM);
+    xTaskCreate(measureBmp280InLoopTask,   /* Task function. */
+                "measureBmp280InLoopTask", /* String with name of task. */
+                10000,                     /* Stack size in words. */
+                this,                      /* Parameter passed as input of the task */
+                1,                         /* Priority of the task ==> lowest priority */
+                NULL                       /* Task handle. */
+    );
 
     // xTaskCreate(measureBmp280InLoopTask,   /* Task function. */
     //             "measureBmp280InLoopTask", /* String with name of task. */
@@ -78,15 +100,23 @@ Bmp280Sensor::Bmp280Sensor(gpio_num_t sdaPin, gpio_num_t sclPin)
     // );
 }
 
-float Bmp280Sensor::getPressure(){
-    return _pressure/100.0;
+float Bmp280Sensor::getPressure()
+{
+    float result = _pressure / 100.0;
+    _pressure = -1000;
+    return result;
 }
 
-float Bmp280Sensor::getTemperature(){
-    return _temperature;
+float Bmp280Sensor::getTemperature()
+{
+    float result = _temperature;
+    _temperature = -1000;
+    return result;
 }
 
-float Bmp280Sensor::getHumidity(){
-    return _humidity;
+float Bmp280Sensor::getHumidity()
+{
+    float result = _humidity;
+    _humidity = -1000;
+    return result;
 }
-

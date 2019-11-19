@@ -54,6 +54,7 @@ private:
   int _errors = 0;
   long _lastErrorTime = 0;
   long _lastRestartTime;
+  long _lastMqttPublishIsLivingTime=0;
   int _startHeapSize;
   long _nextMessageTime=0;
   float _nextHeapSizeQuoteForNotification = 0.7;

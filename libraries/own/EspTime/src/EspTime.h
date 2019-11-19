@@ -8,6 +8,7 @@ public:
 	long getTime();
 	void getTimeString(char *buffer);
 	void getDateString(char *buffer);
+	void getDateTimeString(long time, char *buffer);
 
 private:
 

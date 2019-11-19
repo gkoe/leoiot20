@@ -3,6 +3,7 @@
 #include "Logger.h"
 #include <LoggerTarget.h>
 #include <SerialLoggerTarget.h>
+#include <EspAp.h>
 #include <EspStation.h>
 #include <HttpServer.h>
 #include <EspMqttClient.h>
@@ -19,12 +20,10 @@ const char *SERIAL_LOGGER_TAG = "SLT";
 #define SLEEP_DURATION 720ll // duration of sleep between flora connection attempts in seconds (must be constant with "ll" suffix)
 #define SLEEP_WAIT 90		 // time until esp32 is put into deep sleep mode. must be sufficient to connect to wlan, connect to xiaomi flora device & push measurement data to MQTT
 
-//const char *urlMqttGateway = "leonding.synology.me/esplogs/mqtt"; //mifloraentries
 char httpMqttGateway[LENGTH_MIDDLE_TEXT];
 char httpUser[LENGTH_MIDDLE_TEXT];
 char httpPassword[LENGTH_MIDDLE_TEXT];
-// const char *basicAuthenticationName = "gerald";
-// const char *basicAuthenticationPassword = "piKla87Sie57";
+char mqttBroker[LENGTH_MIDDLE_TEXT];
 
 #include <MiFlora.h>
 
@@ -95,12 +94,30 @@ void setup()
 	SystemService.init();
 	SystemService.heapSizeCanPushError(false); // BLE braucht viel zu viel Speicher
 	SystemService.resetRestartsCounter();
+	Logger.info("ConfigEspViaAp, app_main()", "Waiting for connection as station!");
 	EspStation.init();
-	Logger.info("MiFloraGateway, app_main()", "Waiting for connection!");
-	while (!EspStation.isStationOnline())
+	int waitingMilliseconds = 10000; // 10 Sekunden lang versuchen, sich zu verbinden
+	while (waitingMilliseconds > 0 && !EspStation.isStationOnline())
 	{
 		vTaskDelay(1 / portTICK_PERIOD_MS);
+		waitingMilliseconds--;
 	}
+	if (!EspStation.isStationOnline())
+	{
+		EspAp.init();
+		while (!EspAp.isApStarted())
+		{
+			vTaskDelay(1 / portTICK_PERIOD_MS);
+		}
+	}
+
+	// EspStation.init();
+	// Logger.info("MiFloraGateway, app_main()", "Waiting for connection!");
+	// while (!EspStation.isStationOnline())
+	// {
+	// 	vTaskDelay(1 / portTICK_PERIOD_MS);
+	// }
+
 	HttpServer.init();
 	Logger.info("MiFloraGateway, app_main()", "HttpServer started");
 	EspTime.init();
@@ -138,6 +155,7 @@ void setup()
 		EspConfig.getNvsStringValue("httpmqttgateway", httpMqttGateway);
 		EspConfig.getNvsStringValue("httpuser", httpUser);
 		EspConfig.getNvsStringValue("httppassword", httpPassword);
+		EspConfig.getNvsStringValue("mqttBroker", mqttBroker);
 		if (strlen(httpMqttGateway) > 0) // Daten per https wegschicken
 		{
 			sendByHttps(mac, "batteryLevel", batteryLevel);
@@ -147,7 +165,7 @@ void setup()
 			sendByHttps(mac, "rssi", rssi);
 			sendByHttps(mac, "conductivity", conductivity);
 		}
-		else // Daten per Mqtt senden
+		else if (strlen(mqttBroker) > 0) // Daten per Mqtt senden
 		{
 			Logger.info("MiFloraGateway, setup()", "send by mqtt");
 			EspMqttClient.init("MiFloraGateway");
@@ -162,6 +180,11 @@ void setup()
 			sendByMqtt(mac, "brightness", brightness);
 			sendByMqtt(mac, "rssi", rssi);
 			sendByMqtt(mac, "conductivity", conductivity);
+		}
+		else
+		{
+			Logger.info("MiFloraGateway, setup()", "No Https-gateway and no Mqtt-Broker configured!");
+			Logger.info("MiFloraGateway, setup()", "!!!!!! WAITING FOR CONFIGURATION !!!!!!!!!!");
 		}
 	}
 	else // keine Messungen anstehend ==> MiFlora-Scanmode ==> BLE

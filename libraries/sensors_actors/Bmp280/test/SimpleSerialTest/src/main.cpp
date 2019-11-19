@@ -7,6 +7,12 @@
 
 const gpio_num_t SDA_GPIO = GPIO_NUM_21;
 const gpio_num_t SCL_GPIO = GPIO_NUM_22;
+const i2c_port_t i2cPort = I2C_NUM_0;
+
+extern "C"
+{
+    void app_main(void);
+}
 
 void bmp280_test(void *pvParamters)
 {
@@ -23,7 +29,7 @@ void bmp280_test(void *pvParamters)
         vTaskDelay(250 / portTICK_PERIOD_MS);
     }
 
-    while (bmp280_init_desc(&dev, BMP280_I2C_ADDRESS_0, 0, SDA_GPIO, SCL_GPIO) != ESP_OK)
+    while (bmp280_init_desc(&dev, BMP280_I2C_ADDRESS_0, i2cPort, SDA_GPIO, SCL_GPIO) != ESP_OK)
     {
         printf("Could not init device descriptor\n");
         vTaskDelay(250 / portTICK_PERIOD_MS);
@@ -42,18 +48,25 @@ void bmp280_test(void *pvParamters)
 
     while (1)
     {
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        while ((res = bmp280_init(&dev, &params)) != ESP_OK)
+        {
+            printf("Could not init BMP280, err: %d\n", res);
+            vTaskDelay(250 / portTICK_PERIOD_MS);
+        }
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
         if (bmp280_read_float(&dev, &temperature, &pressure, &humidity) != ESP_OK)
         {
             printf("Temperature/pressure reading failed\n");
-            continue;
         }
-
-        printf("Pressure: %.2f Pa, Temperature: %.2f C", pressure, temperature);
-        if (bme280p)
-            printf(", Humidity: %.2f\n", humidity);
         else
-            printf("\n");
+        {
+            printf("Pressure: %.2f Pa, Temperature: %.2f C", pressure, temperature);
+            if (bme280p)
+                printf(", Humidity: %.2f\n", humidity);
+            else
+                printf("\n");
+        }
     }
 }
 
